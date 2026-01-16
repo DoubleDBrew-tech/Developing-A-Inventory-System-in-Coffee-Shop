@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Double'd Brew Inventory</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body { background: #f8f9fa; }
+    #app { display: none; }
+    #loginForm { height: 100vh; display: flex; align-items: center; justify-content: center; }
+    .login-box {
+      background: #fff; padding: 30px; border-radius: 12px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.1); width: 350px; text-align: center;
+    }
+    .login-box h2 { margin-bottom: 20px; color: #6b4226; }
+    .kg-small { font-size: 0.85rem; color: #6c757d; display:block; }
+  </style>
+</head>
+
+<body>
+
+<!-- LOGIN -->
+<div id="loginForm">
+  <div class="login-box">
+    <h2>Double'd Brew Login</h2>
+    <input type="text" id="username" class="form-control mb-2" placeholder="Username" required>
+    <input type="password" id="password" class="form-control mb-3" placeholder="Password" required>
+    <button class="btn btn-primary w-100" onclick="login()">Login</button>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app">
+  <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <div class="container-fluid">
+      <a class="navbar-brand" href="#">Double'd Brew Inventory</a>
+
+      <div class="d-flex ms-auto">
+        <!-- SORTING DROPDOWN -->
+        <select id="sortSelect" class="form-select me-2" onchange="sortProducts()" style="width:170px;">
+          <option value="">Sort</option>
+          <option value="az">A → Z</option>
+          <option value="za">Z → A</option>
+          <option value="stockLowHigh">Stock Low → High</option>
+          <option value="stockHighLow">Stock High → Low</option>
+        </select>
+
+        <button class="btn btn-outline-light me-2" onclick="exportCSV()">Export CSV</button>
+        <button class="btn btn-warning" onclick="logout()">Logout</button>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container py-4" id="main"></div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-app.js";
+import {
+  getFirestore, collection, getDocs, addDoc, updateDoc, deleteDoc, doc
+} from "https://www.gstatic.com/firebasejs/12.3.0/firebase-firestore.js";
+
+// FIREBASE
+const firebaseConfig = {
+  apiKey: "AIzaSyA-nzm4JKM6QdwVxcVu6uWUeRy9n5hJZpU",
+  authDomain: "inventory-system-67e2e.firebaseapp.com",
+  projectId: "inventory-system-67e2e",
+  storageBucket: "inventory-system-67e2e.firebasestorage.app",
+  messagingSenderId: "38184157713",
+  appId: "1:38184157713:web:2a46fee4490e897954a7b0"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+let products = [];
+let currentCategory = "all"; // pang filter
+let sortMode = ""; // current sort (az, za, stockLowHigh, stockHighLow)
+let searchQuery = ""; // search string
+
+window.login = function () {
+  const email = document.getElementById("username").value.trim();
+  const password = document.getElementById("password").value.trim();
+
+  if (email === "admin" && password === "ern") {
+    localStorage.setItem("loggedIn", "true");
+    document.getElementById("loginForm").style.display = "none";
+    document.getElementById("app").style.display = "block";
+    loadProducts();
+  } else {
+    alert("❌ Invalid username or password!");
+  }
+};
+
+window.logout = function () {
+  localStorage.removeItem("loggedIn");
+  document.getElementById("app").style.display = "none";
+  document.getElementById("loginForm").style.display = "flex";
+};
+
+// KG PARSING UTIL
+function parseKgInput(input) {
+  if (!input || input.toString().trim() === "") return { kg_value: null, kg_display: "" };
+  let s = input.toString().trim().toLowerCase();
+  s = s.replace(/\s+/g, '');
+  let kg_value = null;
+  if (s.endsWith('g') && !s.endsWith('kg')) {
+    let num = parseFloat(s.replace(/g$/, ''));
+    if (!isNaN(num)) kg_value = num / 1000;
+  } else if (s.endsWith('kg')) {
+    let num = parseFloat(s.replace(/kg$/, ''));
+    if (!isNaN(num)) kg_value = num;
+  } else {
+    const num = parseFloat(s);
+    if (!isNaN(num)) {
+      if (num >= 100) {
+        kg_value = num / 1000;
+        s = s + 'g';
+      } else {
+        kg_value = num;
+      }
+    }
+  }
+  let kg_display = "";
+  if (kg_value === null) {
+    kg_display = input.toString();
+  } else {
+    if (kg_value < 1) {
+      const grams = Math.round(kg_value * 1000);
+      kg_display = `${grams} g`;
+    } else {
+      kg_display = `${+kg_value.toFixed(3)} kg`;
+    }
+  }
+  return { kg_value, kg_display };
+}
+
+// LOAD PRO
+async function loadProducts() {
+  const querySnapshot = await getDocs(collection(db, "products"));
+  products = [];
+  querySnapshot.forEach((docu) => {
+    products.push({ id: docu.id, ...docu.data() });
+  });
+  showDashboard();
+}
+
+// ADD PRO
+window.addProduct = function () {
+  document.getElementById("main").innerHTML = `
+    <h3>Add New Product</h3>
+    <form id="addForm">
+      <input class="form-control mb-2" name="sku" placeholder="SKU" required>
+      <input class="form-control mb-2" name="name" placeholder="Name" required>
+      <input class="form-control mb-2" name="description" placeholder="Description">
+
+      <select class="form-control mb-2" name="category" required>
+        <option value="">Select Category</option>
+        <option value="ingredient">Ingredient</option>
+        <option value="utensil">Utensil</option>
+      </select>
+
+      <input class="form-control mb-2" name="kg" placeholder="KG (e.g. 250g, 0.25kg, 1kg)" required>
+
+      <input class="form-control mb-2" name="price" placeholder="Price" type="number" step="0.01" required>
+      <input class="form-control mb-2" name="stock" placeholder="Stock (units)" type="number" required>
+
+      <button class="btn btn-success">Save Product</button>
+      <button type="button" class="btn btn-secondary ms-2" onclick="showDashboard()">Cancel</button>
+    </form>
+  `;
+  document.getElementById("addForm").addEventListener("submit", saveNewProduct);
+};
+
+async function saveNewProduct(e) {
+  e.preventDefault();
+  const form = e.target;
+  const kgParsed = parseKgInput(form.kg.value);
+
+  const newP = {
+    sku: form.sku.value,
+    name: form.name.value,
+    description: form.description.value,
+    category: form.category.value,
+    kg: kgParsed.kg_display,
+    kg_value: kgParsed.kg_value,
+    price: parseFloat(form.price.value),
+    stock: parseInt(form.stock.value)
+  };
+
+  await addDoc(collection(db, "products"), newP);
+  alert("✅ Product added!");
+  loadProducts();
+}
+
+// EDIT PRO
+window.editProduct = function (id) {
+  const p = products.find(x => x.id === id) || {};
+  const kg_display = p.kg || (p.kg_value ? (p.kg_value < 1 ? `${Math.round(p.kg_value*1000)} g` : `${+p.kg_value.toFixed(3)} kg`) : '');
+
+  document.getElementById("main").innerHTML = `
+    <h3>Edit Product</h3>
+    <form id="editForm">
+      <input type="hidden" name="id" value="${p.id ?? ''}">
+      <input class="form-control mb-2" name="sku" value="${p.sku ?? ''}" required>
+      <input class="form-control mb-2" name="name" value="${p.name ?? ''}" required>
+
+      <input class="form-control mb-2" name="description" value="${p.description ?? ''}">
+      
+      <select class="form-control mb-2" name="category" required>
+        <option value="">Select Category</option>
+        <option value="ingredient" ${p.category==="ingredient"?"selected":""}>Ingredient</option>
+        <option value="utensil" ${p.category==="utensil"?"selected":""}>Utensil</option>
+      </select>
+
+      <input class="form-control mb-2" name="kg" placeholder="KG (e.g. 250g, 0.25kg, 1kg)" value="${kg_display}">
+
+      <input class="form-control mb-2" name="price" value="${p.price ?? 0}" type="number" step="0.01" required>
+      <input class="form-control mb-2" name="stock" value="${p.stock ?? 0}" type="number" required>
+
+      <button class="btn btn-primary">Update Product</button>
+      <button type="button" class="btn btn-secondary ms-2" onclick="showDashboard()">Cancel</button>
+    </form>
+  `;
+  document.getElementById("editForm").addEventListener("submit", updateProduct);
+};
+
+async function updateProduct(e) {
+  e.preventDefault();
+  const form = e.target;
+  const kgParsed = parseKgInput(form.kg.value);
+
+  const ref = doc(db, "products", form.id.value);
+  await updateDoc(ref, {
+    sku: form.sku.value,
+    name: form.name.value,
+    description: form.description.value,
+    category: form.category.value,
+    kg: kgParsed.kg_display,
+    kg_value: kgParsed.kg_value,
+    price: parseFloat(form.price.value),
+    stock: parseInt(form.stock.value)
+  });
+
+  alert("✅ Updated!");
+  loadProducts();
+}
+
+// DELETE
+window.deleteProduct = async function (id) {
+  if (confirm("Delete this product?")) {
+    await deleteDoc(doc(db, "products", id));
+    loadProducts();
+  }
+};
+
+// Adjust
+window.applyAdjust = async function (id, value) {
+  const p = products.find(x => x.id === id);
+  const adjust = parseInt(value);
+
+  if (isNaN(adjust)) return alert("Invalid number!");
+
+  const ref = doc(db, "products", id);
+  await updateDoc(ref, { stock: (p.stock || 0) + adjust });
+
+  loadProducts();
+};
+
+// Stock Color
+function stockColor(stock) {
+  if ((stock || 0) <= 3) return "bg-danger text-white fw-bold";
+  if ((stock || 0) <= 6) return "bg-warning fw-bold";
+  return "bg-success text-white fw-bold";
+}
+
+// APPLY F S R
+function applyFiltersAndRender() {
+  // category filter
+  let list = (currentCategory === 'all') ? [...products] : products.filter(p => p.category === currentCategory);
+
+  // search filter
+  const q = (searchQuery || "").toString().trim().toLowerCase();
+  if (q !== "") {
+    list = list.filter(p => {
+      const name = (p.name ?? "").toString().toLowerCase();
+      const sku = (p.sku ?? "").toString().toLowerCase();
+      const category = (p.category ?? "").toString().toLowerCase();
+      const kg = (p.kg ?? (p.kg_value ? ((p.kg_value < 1) ? `${Math.round(p.kg_value*1000)} g` : `${+p.kg_value.toFixed(3)} kg`) : "")).toString().toLowerCase();
+      const kg_value = (typeof p.kg_value === 'number') ? p.kg_value.toString().toLowerCase() : "";
+      const stockStr = (p.stock ?? "").toString().toLowerCase();
+      return name.includes(q) || sku.includes(q) || category.includes(q) || kg.includes(q) || kg_value.includes(q) || stockStr.includes(q);
+    });
+  }
+
+  // sorting
+  if (sortMode === "az") list.sort((a, b) => (a.name ?? '').localeCompare(b.name ?? ''));
+  if (sortMode === "za") list.sort((a, b) => (b.name ?? '').localeCompare(a.name ?? ''));
+  if (sortMode === "stockLowHigh") list.sort((a, b) => (a.stock ?? 0) - (b.stock ?? 0));
+  if (sortMode === "stockHighLow") list.sort((a, b) => (b.stock ?? 0) - (a.stock ?? 0));
+
+  // render
+  renderTable(list);
+}
+
+// Render Tabler
+function renderTable(list) {
+  const tbody = document.getElementById("productTableBody");
+  if (!tbody) return;
+
+  tbody.innerHTML = list.map(p => {
+    const price = (typeof p.price === 'number') ? p.price : 0;
+    const stock = (typeof p.stock === 'number') ? p.stock : 0;
+    const isUtensils = (p.category === "utensil");
+    const pieces = isUtensils ? (stock * 100) : "";
+    const totalValue = (price * stock).toFixed(2);
+    const kgDisplay = p.kg ? p.kg : (p.kg_value ? (p.kg_value < 1 ? `${Math.round(p.kg_value*1000)} g` : `${+p.kg_value.toFixed(3)} kg`) : '');
+
+    return `
+      <tr>
+        <td>${p.sku ?? ''}</td>
+        <td>${p.name ?? ''}</td>
+
+        <td class="${stockColor(stock)} text-center">${stock}</td>
+
+         <td>${
+          isUtensils
+            ? `${pieces.toLocaleString()} pcs`
+            : `—`
+        }</td>
+
+        <td>₱${price.toFixed(2)}</td>
+
+        <td>
+          ${kgDisplay ? `<strong>${kgDisplay}</strong>` : `<span class="kg-small">—</span>`}
+        </td>
+
+        <td>₱${totalValue}</td>
+
+        <td>
+          <div class="dropdown">
+  <button class="btn btn-sm btn-outline-success dropdown-toggle" type="button" data-bs-toggle="dropdown">
+    Adjust
+  </button>
+
+  <ul class="dropdown-menu p-2" style="min-width: 150px;">
+    <li class="fw-bold px-2">Quick Adjust</li>
+    <li class="d-flex justify-content-between px-2 my-1">
+      <button class="btn btn-sm btn-danger" onclick="applyAdjust('${p.id}', -3)">-3</button>
+      <button class="btn btn-sm btn-danger" onclick="applyAdjust('${p.id}', -2)">-2</button>
+      <button class="btn btn-sm btn-danger" onclick="applyAdjust('${p.id}', -1)">-1</button>
+      <button class="btn btn-sm btn-success" onclick="applyAdjust('${p.id}', 1)">+1</button>
+      <button class="btn btn-sm btn-success" onclick="applyAdjust('${p.id}', 2)">+2</button>
+      <button class="btn btn-sm btn-success" onclick="applyAdjust('${p.id}', 3)">+3</button>
+    </li>
+
+    <li class="fw-bold px-2 mt-2">Custom</li>
+    <li class="px-2">
+      <input type="number" id="custom-${p.id}" class="form-control form-control-sm mb-2" placeholder="Enter number">
+      <button class="btn btn-sm btn-primary w-100" onclick="applyAdjust('${p.id}', document.getElementById('custom-${p.id}').value)">Apply</button>
+    </li>
+  </ul>
+</div>
+          <button class="btn btn-sm btn-outline-primary" onclick="editProduct('${p.id}')">Edit</button>
+          <button class="btn btn-sm btn-outline-danger" onclick="deleteProduct('${p.id}')">Delete</button>
+        </td>
+      </tr>
+    `;
+  }).join("");
+}
+
+// Sorting
+window.sortProducts = function () {
+  sortMode = document.getElementById("sortSelect").value || "";
+  applyFiltersAndRender();
+};
+
+// Select Category
+window.selectCategory = function (cat) {
+  currentCategory = cat;
+  // clear search when switching category? (keeping it so user can combine)
+  applyFiltersAndRender();
+};
+
+// Search
+window.filterProducts = function () {
+  searchQuery = document.getElementById("searchInput").value;
+  applyFiltersAndRender();
+};
+
+// Dashboard
+window.showDashboard = function () {
+  const list = (currentCategory === 'all') ? [...products] : products.filter(p => p.category === currentCategory);
+  let totalItems = list.reduce((sum, p) => sum + (p.stock || 0), 0);
+  let totalValue = list.reduce((sum, p) => sum + ((p.stock || 0) * (p.price || 0)), 0);
+
+  document.getElementById("main").innerHTML = `
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <div>
+        <h4>Inventory Dashboard</h4>
+      </div>
+      <div class="d-flex align-items-center">
+        <button class="btn ${currentCategory==='all'?'btn-dark':'btn-secondary'} me-2" onclick="selectCategory('all')">All</button>
+        <button class="btn ${currentCategory==='ingredient'?'btn-dark':'btn-secondary'} me-2" onclick="selectCategory('ingredient')">Ingredients</button>
+        <button class="btn ${currentCategory==='utensil'?'btn-dark':'btn-secondary'} me-2" onclick="selectCategory('utensil')">Utensils</button>
+        <button class="btn btn-warning me-2" onclick="showLowStock()">⚠️ Low Stock</button>
+        <button class="btn btn-primary me-2" onclick="addProduct()">➕ Add Product</button>
+      </div>
+    </div>
+
+    <!-- Search Bar -->
+    <div class="input-group mb-3">
+      <span class="input-group-text">🔍</span>
+      <input type="text" id="searchInput" class="form-control" placeholder="Search (name, sku, category, kg, stock...)" onkeyup="filterProducts()">
+    </div>
+
+    <div class="row mb-4">
+      <div class="col-md-4"><div class="card p-3 text-center"><h5>Total Products</h5><h2>${list.length}</h2></div></div>
+      <div class="col-md-4"><div class="card p-3 text-center"><h5>Total Items</h5><h2>${totalItems}</h2></div></div>
+      <div class="col-md-4"><div class="card p-3 text-center"><h5>Total Value</h5><h2>₱${totalValue.toFixed(2)}</h2></div></div>
+    </div>
+
+    <table class="table table-striped align-middle" id="productTable">
+      <thead class="table-dark">
+        <tr>
+          <th>SKU</th>
+          <th>Name</th>
+          <th>Stock</th>
+          <th>Pieces</th>
+          <th>Price</th>
+          <th>KG</th>
+          <th>Total Value</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="productTableBody"></tbody>
+    </table>
+  `;
+
+  // SearchI & FilterRender
+  const input = document.getElementById("searchInput");
+  if (input) input.value = searchQuery || "";
+  applyFiltersAndRender();
+};
+
+// LOW STOCK
+window.showLowStock = function () {
+  const lowStock = products.filter(p => (p.stock || 0) <= 3);
+  if (lowStock.length === 0) {
+    alert("✅ All stocks are sufficient!");
+    return;
+  }
+
+  let rows = lowStock.map(p => `
+    <tr>
+      <td>${p.sku ?? ''}</td>
+      <td>${p.name ?? ''}</td>
+      <td class="${stockColor(p.stock ?? 0)} text-center">${p.stock ?? 0}</td>
+      <td>₱${(p.price ?? 0).toFixed(2)}</td>
+      <td>${p.kg ?? (p.kg_value ? (p.kg_value < 1 ? `${Math.round(p.kg_value*1000)} g` : `${+p.kg_value.toFixed(3)} kg`) : '')}</td>
+      <td>₱${(((p.price || 0) * (p.stock || 0))).toFixed(2)}</td>
+    </tr>
+  `).join("");
+
+  document.getElementById("main").innerHTML = `
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h4>⚠️ Low Stock Products</h4>
+      <div>
+        <button class="btn btn-secondary me-2" onclick="showDashboard()">⬅️ Back</button>
+        <button class="btn btn-primary" onclick="exportCSV()">⬇️ Export CSV</button>
+      </div>
+    </div>
+
+    <table class="table table-striped align-middle">
+      <thead class="table-danger">
+        <tr><th>SKU</th><th>Name</th><th>Stock</th><th>Price</th><th>KG</th><th>Total Value</th></tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>
+  `;
+};
+
+// EXPORT CSV
+window.exportCSV = function () {
+  const now = new Date();
+  const timestamp = now.toISOString().replace(/[:T]/g, "-").split(".")[0];
+
+  let csv = "SKU,Name,Category,Stock,Pieces,Price,KG,Total Value\n";
+
+  products.forEach(p => {
+    const sku = p.sku ?? "";
+    const name = p.name ?? "";
+    const category = (p.category ?? "").toLowerCase(); // normalize
+
+    const stock = Number(p.stock ?? 0);
+    const price = Number(p.price ?? 0);
+
+    // Utensils lang may pieces
+    const pieces = (category === "utensil") ? (stock * 100) : "";
+
+    // ✔ KG format
+    const kg = p.kg
+      ? p.kg
+      : (p.kg_value
+          ? (p.kg_value < 1
+              ? `${Math.round(p.kg_value * 1000)} g`
+              : `${+p.kg_value.toFixed(3)} kg`)
+          : "");
+
+    const totalValue = (stock * price).toFixed(2);
+
+    csv += `${sku},${name},${category},${stock},${pieces},${price},${kg},${totalValue}\n`;
+  });
+
+  const header = "SKU,Name,Stock,Pieces,Price,KG_Display,KG_Value(kg)";
+
+  const previousData = localStorage.getItem("lastExport");
+  let comparisonNotes = "";
+
+  if (previousData) {
+    comparisonNotes = compareExports(previousData, dataLines.join("\n"));
+  } else {
+    comparisonNotes = "📦 First export — no previous data to compare.";
+  }
+
+  localStorage.setItem("lastExport", dataLines.join("\n"));
+
+  const csvContent = `Export Date: ${timestamp}\n${comparisonNotes}\n\n${header}\n${dataLines.join("\n")}`;
+  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(blob);
+  link.download = `inventory_${timestamp}.csv`;
+  link.click();
+};
+
+// Compare CSV
+function compareExports(prev, current) {
+  const prevLines = prev.split("\n");
+  const currLines = current.split("\n");
+  const added = currLines.filter(line => !prevLines.includes(line));
+  const removed = prevLines.filter(line => !currLines.includes(line));
+
+  let note = "";
+  if (added.length === 0 && removed.length === 0) {
+    note = "✅ No changes since last export.";
+    alert(note);
+  } else {
+    note = "🔄 Comparison Results:";
+    if (added.length > 0) note += `\n🆕 Added/Changed: ${added.length}`;
+    if (removed.length > 0) note += `\n❌ Removed: ${removed.length}`;
+    alert(`${note}\n\n🆕 Added:\n${added.join("\n")}\n\n❌ Removed:\n${removed.join("\n")}`);
+  }
+  return note;
+}
+
+// Auto Login
+if (localStorage.getItem("loggedIn") === "true") {
+  document.getElementById("loginForm").style.display = "none";
+  document.getElementById("app").style.display = "block";
+  loadProducts();
+}
+</script>
+  <!-- BootStrapJS (para sa adjust)-->
+  <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.8/dist/umd/popper.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.min.js"></script>
+</body>
+</html>
