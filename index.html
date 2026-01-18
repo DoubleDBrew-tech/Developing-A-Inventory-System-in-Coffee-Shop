@@ -482,56 +482,69 @@ window.showLowStock = function () {
 
 // EXPORT CSV
 window.exportCSV = function () {
-  const now = new Date();
-  const timestamp = now.toISOString().replace(/[:T]/g, "-").split(".")[0];
+    const headers = [
+        "SKU",
+        "Name",
+        "Description",
+        "Category",
+        "KG",
+        "KG_Value",
+        "Price",
+        "Stock",
+        "Total_Value",
+        "Pieces"
+    ];
 
-  let csv = "SKU,Name,Category,Stock,Pieces,Price,KG,Total Value\n";
+    let csv = headers.join(",") + "\n";
 
-  products.forEach(p => {
-    const sku = p.sku ?? "";
-    const name = p.name ?? "";
-    const category = (p.category ?? "").toLowerCase(); // normalize
+    products.forEach(p => {
+        // --- Consistent KG ---
+        let kgFormatted = "";
+        let kgValue = p.kg_value ?? "";
 
-    const stock = Number(p.stock ?? 0);
-    const price = Number(p.price ?? 0);
+        if (p.kg_value) {
+            kgFormatted = p.kg_value + " kg";
+        } else if (p.kg) {
+            kgFormatted = p.kg; // fallback
+        }
+        const pieces = p.category?.toLowerCase() === "utensils"
+            ? (Number(p.stock) * 100)
+            : "";
+        const totalValue = (Number(p.stock) * Number(p.price || 0)) || 0;
+        const safe = val => {
+            if (val === undefined || val === null) return "";
+            val = String(val);
+            if (val.includes(",") || val.includes("\"")) {
+                return `"${val.replace(/"/g, '""')}"`;
+            }
+            return val;
+        };
 
-    // Utensils lang may pieces
-    const pieces = (category === "utensil") ? (stock * 100) : "";
+        csv += [
+            safe(p.sku),
+            safe(p.name),
+            safe(p.description),
+            safe(p.category),
+            safe(kgFormatted),
+            safe(kgValue),
+            safe(p.price),
+            safe(p.stock),
+            safe(totalValue),
+            safe(pieces)
+        ].join(",") + "\n";
+    });
 
-    // ✔ KG format
-    const kg = p.kg
-      ? p.kg
-      : (p.kg_value
-          ? (p.kg_value < 1
-              ? `${Math.round(p.kg_value * 1000)} g`
-              : `${+p.kg_value.toFixed(3)} kg`)
-          : "");
+    // Download CSV
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
 
-    const totalValue = (stock * price).toFixed(2);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "inventory_export.csv";
+    link.click();
 
-    csv += `${sku},${name},${category},${stock},${pieces},${price},${kg},${totalValue}\n`;
-  });
-
-  const header = "SKU,Name,Stock,Pieces,Price,KG_Display,KG_Value(kg)";
-
-  const previousData = localStorage.getItem("lastExport");
-  let comparisonNotes = "";
-
-  if (previousData) {
-    comparisonNotes = compareExports(previousData, dataLines.join("\n"));
-  } else {
-    comparisonNotes = "📦 First export — no previous data to compare.";
-  }
-
-  localStorage.setItem("lastExport", dataLines.join("\n"));
-
-  const csvContent = `Export Date: ${timestamp}\n${comparisonNotes}\n\n${header}\n${dataLines.join("\n")}`;
-  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-  const link = document.createElement("a");
-  link.href = URL.createObjectURL(blob);
-  link.download = `inventory_${timestamp}.csv`;
-  link.click();
-};
+    URL.revokeObjectURL(url);
+}
 
 // Compare CSV
 function compareExports(prev, current) {
@@ -565,5 +578,6 @@ if (localStorage.getItem("loggedIn") === "true") {
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.min.js"></script>
 </body>
 </html>
+
 
 
