@@ -98,41 +98,84 @@ window.logout = function () {
   document.getElementById("loginForm").style.display = "flex";
 };
 
-// KG PARSING UTIL
+// G KG ML L
 function parseKgInput(input) {
-  if (!input || input.toString().trim() === "") return { kg_value: null, kg_display: "" };
+  if (!input || input.toString().trim() === "") 
+    return { 
+      kg_value: null, 
+      kg_display: "", 
+      liter_value: null, 
+      liter_display: "" 
+    };
+
   let s = input.toString().trim().toLowerCase();
   s = s.replace(/\s+/g, '');
+
   let kg_value = null;
-  if (s.endsWith('g') && !s.endsWith('kg')) {
-    let num = parseFloat(s.replace(/g$/, ''));
-    if (!isNaN(num)) kg_value = num / 1000;
-  } else if (s.endsWith('kg')) {
-    let num = parseFloat(s.replace(/kg$/, ''));
-    if (!isNaN(num)) kg_value = num;
-  } else {
+  let kg_display = "";
+
+  let liter_value = null;
+  let liter_display = "";
+
+  // grams 
+  if (s.endsWith("g") && !s.endsWith("kg")) {
+    let num = parseFloat(s.replace(/g$/, ""));
+    if (!isNaN(num)) {
+      kg_value = num / 1000;
+      kg_display = `${num} g`;
+    }
+  }
+
+  // kilogram
+  else if (s.endsWith("kg")) {
+    let num = parseFloat(s.replace(/kg$/, ""));
+    if (!isNaN(num)) {
+      kg_value = num;
+      kg_display = `${num} kg`;
+    }
+  }
+
+  // ml 
+  else if (s.endsWith("ml")) {
+    let num = parseFloat(s.replace(/ml$/, ""));
+    if (!isNaN(num)) {
+      liter_value = num / 1000;
+      liter_display = `${num} ml`;
+    }
+  }
+
+  // Liters
+  else if (s.endsWith("l")) {
+    let num = parseFloat(s.replace(/l$/, ""));
+    if (!isNaN(num)) {
+      liter_value = num;
+      liter_display = `${num} L`;
+    }
+  }
+
+  
+  else {
     const num = parseFloat(s);
     if (!isNaN(num)) {
-      if (num >= 100) {
-        kg_value = num / 1000;
-        s = s + 'g';
-      } else {
+      
+      if (num <= 10) {
         kg_value = num;
+        kg_display = `${num} kg`;
+      } 
+      
+      else if (num >= 50) {
+        liter_value = num / 1000;
+        liter_display = `${num} ml`;
       }
     }
   }
-  let kg_display = "";
-  if (kg_value === null) {
-    kg_display = input.toString();
-  } else {
-    if (kg_value < 1) {
-      const grams = Math.round(kg_value * 1000);
-      kg_display = `${grams} g`;
-    } else {
-      kg_display = `${+kg_value.toFixed(3)} kg`;
-    }
-  }
-  return { kg_value, kg_display };
+
+  return {
+    kg_value,
+    kg_display,
+    liter_value,
+    liter_display
+  };
 }
 
 // LOAD PRO
@@ -578,6 +621,7 @@ if (localStorage.getItem("loggedIn") === "true") {
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.min.js"></script>
 </body>
 </html>
+
 
 
 
