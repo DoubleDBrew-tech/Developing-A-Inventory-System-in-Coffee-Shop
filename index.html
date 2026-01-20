@@ -98,84 +98,77 @@ window.logout = function () {
   document.getElementById("loginForm").style.display = "flex";
 };
 
-// G KG ML L
-function parseKgInput(input) {
-  if (!input || input.toString().trim() === "") 
-    return { 
-      kg_value: null, 
-      kg_display: "", 
-      liter_value: null, 
-      liter_display: "" 
-    };
+  // Units
+function parseUnitInput(input) {
+  if (!input || input.toString().trim() === "") {
+    return { unit: "", unit_value: null, unit_type: null };
+  }
 
-  let s = input.toString().trim().toLowerCase();
-  s = s.replace(/\s+/g, '');
+  let s = input.toString().trim().toLowerCase().replace(/\s+/g, "");
 
-  let kg_value = null;
-  let kg_display = "";
+  let unit = "";
+  let unit_value = null;
+  let unit_type = null;
 
-  let liter_value = null;
-  let liter_display = "";
-
-  // grams 
+  // grams
   if (s.endsWith("g") && !s.endsWith("kg")) {
     let num = parseFloat(s.replace(/g$/, ""));
     if (!isNaN(num)) {
-      kg_value = num / 1000;
-      kg_display = `${num} g`;
+      unit = `${num} g`;
+      unit_value = num;
+      unit_type = "solid";
     }
   }
 
-  // kilogram
+  // kilograms
   else if (s.endsWith("kg")) {
     let num = parseFloat(s.replace(/kg$/, ""));
     if (!isNaN(num)) {
-      kg_value = num;
-      kg_display = `${num} kg`;
+      unit = `${num} kg`;
+      unit_value = num * 1000;
+      unit_type = "solid";
     }
   }
 
-  // ml 
+  // milliliters
   else if (s.endsWith("ml")) {
     let num = parseFloat(s.replace(/ml$/, ""));
     if (!isNaN(num)) {
-      liter_value = num / 1000;
-      liter_display = `${num} ml`;
+      unit = `${num} ml`;
+      unit_value = num;
+      unit_type = "liquid";
     }
   }
 
-  // Liters
+  // liters
   else if (s.endsWith("l")) {
     let num = parseFloat(s.replace(/l$/, ""));
     if (!isNaN(num)) {
-      liter_value = num;
-      liter_display = `${num} L`;
+      unit = `${num} L`;
+      unit_value = num * 1000; 
+      unit_type = "liquid";
     }
   }
 
-  
+ 
   else {
     const num = parseFloat(s);
     if (!isNaN(num)) {
-      
       if (num <= 10) {
-        kg_value = num;
-        kg_display = `${num} kg`;
-      } 
-      
-      else if (num >= 50) {
-        liter_value = num / 1000;
-        liter_display = `${num} ml`;
+       
+        unit = `${num} kg`;
+        unit_value = num * 1000;
+        unit_type = "solid";
+      } else if (num >= 50) {
+        
+        unit = `${num} ml`;
+        unit_value = num;
+        unit_type = "liquid";
       }
     }
   }
 
-  return {
-    kg_value,
-    kg_display,
-    liter_value,
-    liter_display
-  };
+  return { unit, unit_value, unit_type };
 }
 
 // LOAD PRO
@@ -218,15 +211,16 @@ window.addProduct = function () {
 async function saveNewProduct(e) {
   e.preventDefault();
   const form = e.target;
-  const kgParsed = parseKgInput(form.kg.value);
+  const parsed = parseUnitInput(form.kg.value);
 
   const newP = {
     sku: form.sku.value,
     name: form.name.value,
     description: form.description.value,
     category: form.category.value,
-    kg: kgParsed.kg_display,
-    kg_value: kgParsed.kg_value,
+    kg: parsed.unit,        
+    kg_value: parsed.unit_value,
+    unit_type: parsed.unit_type, 
     price: parseFloat(form.price.value),
     stock: parseInt(form.stock.value)
   };
@@ -256,7 +250,7 @@ window.editProduct = function (id) {
         <option value="utensil" ${p.category==="utensil"?"selected":""}>Utensil</option>
       </select>
 
-      <input class="form-control mb-2" name="kg" placeholder="KG (e.g. 250g, 0.25kg, 1kg)" value="${kg_display}">
+      <input class="form-control mb-2" name="kg" placeholder="G KG ml L (e.g. 250g, 1kg, 500, 1500ml, 2L)" value="${kg_display}">
 
       <input class="form-control mb-2" name="price" value="${p.price ?? 0}" type="number" step="0.01" required>
       <input class="form-control mb-2" name="stock" value="${p.stock ?? 0}" type="number" required>
@@ -271,7 +265,7 @@ window.editProduct = function (id) {
 async function updateProduct(e) {
   e.preventDefault();
   const form = e.target;
-  const kgParsed = parseKgInput(form.kg.value);
+  const parsed = parseUnitInput(form.kg.value); 
 
   const ref = doc(db, "products", form.id.value);
   await updateDoc(ref, {
@@ -279,8 +273,9 @@ async function updateProduct(e) {
     name: form.name.value,
     description: form.description.value,
     category: form.category.value,
-    kg: kgParsed.kg_display,
-    kg_value: kgParsed.kg_value,
+    kg: parsed.unit,
+    kg_value: parsed.unit_value,
+    unit_type: parsed.unit_type, 
     price: parseFloat(form.price.value),
     stock: parseInt(form.stock.value)
   });
@@ -421,7 +416,7 @@ window.sortProducts = function () {
 // Select Category
 window.selectCategory = function (cat) {
   currentCategory = cat;
-  // clear search when switching category? (keeping it so user can combine)
+ 
   applyFiltersAndRender();
 };
 
@@ -530,8 +525,8 @@ window.exportCSV = function () {
         "Name",
         "Description",
         "Category",
-        "KG",
-        "KG_Value",
+        "Unit",
+        "Unit_Value",
         "Price",
         "Stock",
         "Total_Value",
@@ -541,19 +536,11 @@ window.exportCSV = function () {
     let csv = headers.join(",") + "\n";
 
     products.forEach(p => {
-        // --- Consistent KG ---
-        let kgFormatted = "";
-        let kgValue = p.kg_value ?? "";
-
-        if (p.kg_value) {
-            kgFormatted = p.kg_value + " kg";
-        } else if (p.kg) {
-            kgFormatted = p.kg; // fallback
-        }
-        const pieces = p.category?.toLowerCase() === "utensils"
+        const pieces = p.category?.toLowerCase() === "utensil"
             ? (Number(p.stock) * 100)
             : "";
         const totalValue = (Number(p.stock) * Number(p.price || 0)) || 0;
+
         const safe = val => {
             if (val === undefined || val === null) return "";
             val = String(val);
@@ -568,8 +555,8 @@ window.exportCSV = function () {
             safe(p.name),
             safe(p.description),
             safe(p.category),
-            safe(kgFormatted),
-            safe(kgValue),
+            safe(p.unit),        
+            safe(p.unit_value),  
             safe(p.price),
             safe(p.stock),
             safe(totalValue),
@@ -587,26 +574,27 @@ window.exportCSV = function () {
     link.click();
 
     URL.revokeObjectURL(url);
-}
+};
 
 // Compare CSV
 function compareExports(prev, current) {
-  const prevLines = prev.split("\n");
-  const currLines = current.split("\n");
-  const added = currLines.filter(line => !prevLines.includes(line));
-  const removed = prevLines.filter(line => !currLines.includes(line));
+    const prevLines = prev.split("\n");
+    const currLines = current.split("\n");
 
-  let note = "";
-  if (added.length === 0 && removed.length === 0) {
-    note = "✅ No changes since last export.";
-    alert(note);
-  } else {
-    note = "🔄 Comparison Results:";
-    if (added.length > 0) note += `\n🆕 Added/Changed: ${added.length}`;
-    if (removed.length > 0) note += `\n❌ Removed: ${removed.length}`;
-    alert(`${note}\n\n🆕 Added:\n${added.join("\n")}\n\n❌ Removed:\n${removed.join("\n")}`);
-  }
-  return note;
+    const added = currLines.filter(line => !prevLines.includes(line));
+    const removed = prevLines.filter(line => !currLines.includes(line));
+
+    let note = "";
+    if (added.length === 0 && removed.length === 0) {
+        note = "✅ No changes since last export.";
+        alert(note);
+    } else {
+        note = "🔄 Comparison Results:";
+        if (added.length > 0) note += `\n🆕 Added/Changed: ${added.length}`;
+        if (removed.length > 0) note += `\n❌ Removed: ${removed.length}`;
+        alert(`${note}\n\n🆕 Added:\n${added.join("\n")}\n\n❌ Removed:\n${removed.join("\n")}`);
+    }
+    return note;
 }
 
 // Auto Login
@@ -621,6 +609,7 @@ if (localStorage.getItem("loggedIn") === "true") {
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.min.js"></script>
 </body>
 </html>
+
 
 
 
