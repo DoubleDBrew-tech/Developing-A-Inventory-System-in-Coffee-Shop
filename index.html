@@ -14,7 +14,7 @@ body {
     color: #1f2937;
 }
 
-/* NAV */
+/* nav */
 .nav-top {
     background: #ffffff;
     border-bottom: 1px solid #e5e7eb;
@@ -24,7 +24,7 @@ body {
     align-items: center;
 }
 
-/* MAIN CONTAINER */
+/* Main container to */
 #app .container {
     background: #ffffff;
     padding: 20px;
@@ -32,13 +32,13 @@ body {
     border: 1px solid #e5e7eb;
 }
 
-/* PRODUCT LIST */
+/* P list */
 .product-list {
     display: grid;
     gap: 16px;
 }
 
-/* PRODUCT CARD */
+/* P card */
 .product-card {
     background: #ffffff;
     border: 1px solid #e5e7eb;
@@ -46,7 +46,7 @@ body {
     padding: 16px;
 }
 
-/* ROWS */
+/* Rows */
 .product-row {
     display: grid;
     grid-template-columns: 130px 1fr;
@@ -59,12 +59,12 @@ body {
     font-weight: 600;
 }
 
-/* ACTIONS */
+/* Action */
 .product-actions {
     margin-top: 12px;
 }
 
-/* BADGES */
+
 .badge {
     font-size: 12px;
     padding: 4px 8px;
@@ -81,12 +81,12 @@ body {
     color: #92400e !important;
 }
 
-/* STOCK COLORS */
+/* Stock Color */
 .stock-red { color: #dc2626; font-weight: 600; }
 .stock-yellow { color: #ca8a04; font-weight: 600; }
 .stock-green { color: #16a34a; font-weight: 600; }
 
-/* INPUTS */
+/* Inputs */
 .form-control, .form-select {
     border-radius: 6px;
 }
@@ -95,7 +95,7 @@ body {
 
 <body>
 
-<!-- LOGIN -->
+<!-- Login -->
 <div id="loginScreen" class="container mt-5" style="max-width:400px;">
     <h3 class="text-center mb-3">Inventory Login</h3>
     <div class="card p-4">
@@ -105,7 +105,7 @@ body {
     </div>
 </div>
 
-<!-- APP -->
+<!-- App -->
 <div id="app" style="display:none;">
 
 <div class="nav-top">
@@ -128,7 +128,7 @@ body {
 </div>
 </div>
 
-<!-- MODAL -->
+<!-- Modal -->
 <div class="modal fade" id="productModal">
 <div class="modal-dialog">
 <div class="modal-content">
@@ -195,7 +195,7 @@ firebase.initializeApp({
 const db = firebase.firestore();
 let products = [];
 
-/* LOGIN */
+/* Login */
 function login(){
     if(email.value==="admin" && password.value==="123"){
         loginScreen.style.display="none";
@@ -209,21 +209,21 @@ function logout(){
     loginScreen.style.display="block";
 }
 
-/* LOAD */
+/* Load */
 async function loadProducts(){
     const snap = await db.collection("products").get();
     products = snap.docs.map(d => ({id:d.id,...d.data()}));
     renderProducts();
 }
 
-/* STOCK COLOR */
+/* Stock color function */
 function colorize(stock){
     if(stock<=3) return "stock-red";
     if(stock<=7) return "stock-yellow";
     return "stock-green";
 }
 
-/* RENDER */
+/* Render */
 function renderProducts(){
     productBody.innerHTML="";
     let s = searchBox.value.toLowerCase();
@@ -254,7 +254,7 @@ function renderProducts(){
     });
 }
 
-/* ADJUST */
+/* Adjust */
 async function adjust(id,amt){
     const ref=db.collection("products").doc(id);
     const doc=await ref.get();
@@ -263,7 +263,7 @@ async function adjust(id,amt){
     loadProducts();
 }
 
-/* MODALS */
+/* Modals */
 function openAddModal(){
     modalTitle.innerText="Add Product";
     pid.value="";
@@ -291,7 +291,7 @@ function openEditModal(id){
     new bootstrap.Modal(productModal).show();
 }
 
-/* SAVE */
+/* Save */
 async function saveProduct(){
     let data={
         sku:psku.value.trim(),
@@ -312,7 +312,7 @@ async function saveProduct(){
     loadProducts();
 }
 
-/* CSV */
+/* Csv export */
 function exportCSV(){
     let csv="SKU,Name,Category,UnitValue,UnitType,Price,Stock\n";
     products.forEach(p=>{
@@ -327,3 +327,4 @@ function exportCSV(){
 
 </body>
 </html>
+
