@@ -8,306 +8,289 @@
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
 
 <style>
-    body {
-        background: #eef1f5;
-        font-family: "Segoe UI", sans-serif;
-    }
+body {
+    background: linear-gradient(135deg, #0f172a, #020617);
+    font-family: "Inter", system-ui, sans-serif;
+    color: #e5e7eb;
+}
 
-    /* LOGIN CARD */
-    #loginScreen .card {
-        border-radius: 15px;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-    }
+.card, .modal-content {
+    background: rgba(15, 23, 42, 0.85);
+    backdrop-filter: blur(10px);
+    border-radius: 16px;
+    border: 1px solid rgba(255,255,255,0.08);
+    color: #e5e7eb;
+}
 
-    /* NEW NAVBAR */
-    .nav-top {
-        background: #1f2937;
-        color: white;
-        padding: 14px 25px;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-    }
+.nav-top {
+    background: rgba(2, 6, 23, 0.9);
+    padding: 14px 25px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
 
-    .nav-top h4 {
-        margin: 0;
-        font-weight: 600;
-    }
+.table {
+    color: #e5e7eb;
+}
 
-    /* STOCK COLORS */
-    .stock-red { color: #d9534f; font-weight: bold; }
-    .stock-yellow { color: #f0ad4e; font-weight: bold; }
-    .stock-green { color: #28a745; font-weight: bold; }
+.table thead {
+    background: #020617;
+}
 
-    /* TABLE */
-    table {
-        border-radius: 10px;
-        overflow: hidden;
-    }
+.table tbody tr:hover {
+    background: rgba(255,255,255,0.04);
+}
 
-    .table thead {
-        background: #374151;
-        color: white;
-    }
+.form-control, .form-select {
+    background: #020617;
+    border: 1px solid rgba(255,255,255,0.1);
+    color: #e5e7eb;
+}
 
-    /* BUTTON STYLES */
-    .btn-custom-add {
-        background: #2563eb;
-        color: white;
-    }
+.form-control:focus, .form-select:focus {
+    border-color: #38bdf8;
+    box-shadow: none;
+}
 
-    .btn-custom-export {
-        background: #4b5563;
-        color: white;
-    }
+.stock-red { color: #f87171; font-weight: 600; }
+.stock-yellow { color: #facc15; font-weight: 600; }
+.stock-green { color: #4ade80; font-weight: 600; }
 
-    .btn-custom-logout {
-        background: #dc3545;
-        color: white;
-        border-radius: 20px;
-        padding: 5px 18px;
-    }
+.badge {
+    border-radius: 12px;
+    padding: 6px 10px;
+    font-size: 0.85rem;
+}
 </style>
 </head>
 
 <body>
 
-<!-- LOGIN SCREEN -->
+<!-- LOGIN -->
 <div id="loginScreen" class="container mt-5" style="max-width:400px;">
     <h3 class="text-center mb-3">Inventory Login</h3>
-
     <div class="card p-4">
-        <label>Username</label>
-        <input type="text" id="email" class="form-control mb-2">
-
-        <label>Password</label>
-        <input type="password" id="password" class="form-control mb-3">
-
+        <input id="email" class="form-control mb-2" placeholder="Username">
+        <input id="password" type="password" class="form-control mb-3" placeholder="Password">
         <button class="btn btn-primary w-100" onclick="login()">Login</button>
     </div>
 </div>
 
-<!-- MAIN APP -->
+<!-- APP -->
 <div id="app" style="display:none;">
 
-    <!-- NEW NAVBAR -->
-    <div class="nav-top">
-        <h4>Inventory Dashboard</h4>
-
-        <div>
-            <button class="btn btn-custom-export btn-sm me-2" onclick="exportCSV()">⬇ Export CSV</button>
-            <button class="btn btn-custom-logout btn-sm" onclick="logout()">Logout</button>
-        </div>
+<div class="nav-top">
+    <h4>Inventory Dashboard</h4>
+    <div>
+        <button class="btn btn-secondary btn-sm me-2" onclick="exportCSV()">⬇ Export CSV</button>
+        <button class="btn btn-danger btn-sm" onclick="logout()">Logout</button>
     </div>
+</div>
 
-    <div class="container mt-4">
+<div class="container mt-4">
 
-        <!-- ACTION BAR -->
-        <div class="d-flex justify-content-between mb-3">
-            <button class="btn btn-custom-add" onclick="openAddModal()">+ Add Product</button>
-            <input type="text" id="searchBox" class="form-control w-25" placeholder="Search..." onkeyup="renderProducts()">
-        </div>
+<div class="d-flex justify-content-between mb-3">
+    <button class="btn btn-primary" onclick="openAddModal()">+ Add Product</button>
+    <input id="searchBox" class="form-control w-25" placeholder="Search..." onkeyup="renderProducts()">
+</div>
 
-        <!-- PRODUCT TABLE -->
-        <table class="table table-bordered bg-white shadow-sm">
-            <thead>
-                <tr>
-                    <th>Name</th>
-                    <th>Stock</th>
-                    <th>Price</th>
-                    <th width="220">Actions</th>
-                </tr>
-            </thead>
-            <tbody id="productBody"></tbody>
-        </table>
+<table class="table table-bordered shadow-sm">
+<thead>
+<tr>
+    <th>SKU</th>
+    <th>Name</th>
+    <th>Category</th>
+    <th>Unit</th>
+    <th>Stock</th>
+    <th>Price</th>
+    <th width="220">Actions</th>
+</tr>
+</thead>
+<tbody id="productBody"></tbody>
+</table>
 
-    </div>
+</div>
 </div>
 
 <!-- MODAL -->
 <div class="modal fade" id="productModal">
-  <div class="modal-dialog">
-    <div class="modal-content">
+<div class="modal-dialog">
+<div class="modal-content">
 
-      <div class="modal-header">
-        <h5 id="modalTitle"></h5>
-        <button class="btn-close" data-bs-dismiss="modal"></button>
-      </div>
-
-      <div class="modal-body">
-        <input type="hidden" id="pid">
-
-        <label>Name</label>
-        <input id="pname" class="form-control mb-2">
-
-        <label>Price</label>
-        <input id="pprice" type="number" class="form-control mb-2">
-
-        <label>Stock</label>
-        <input id="pstock" type="number" class="form-control mb-2">
-      </div>
-
-      <div class="modal-footer">
-        <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-        <button class="btn btn-primary" onclick="saveProduct()">Save</button>
-      </div>
-
-    </div>
-  </div>
+<div class="modal-header">
+    <h5 id="modalTitle"></h5>
+    <button class="btn-close" data-bs-dismiss="modal"></button>
 </div>
 
-<!-- FIXED FIREBASE SCRIPTS (COMPAT VERSION) -->
+<div class="modal-body">
+    <input type="hidden" id="pid">
+
+    <label>SKU</label>
+    <input id="psku" class="form-control mb-2">
+
+    <label>Category</label>
+    <select id="pcategory" class="form-select mb-2">
+        <option value="">Select</option>
+        <option value="Wet">Wet Ingredient</option>
+        <option value="Dry">Dry Ingredient</option>
+    </select>
+
+    <label>Name</label>
+    <input id="pname" class="form-control mb-2">
+
+    <label>Unit</label>
+    <select id="punit" class="form-select mb-2">
+        <option value="g">g</option>
+        <option value="kg">kg</option>
+        <option value="ml">ml</option>
+        <option value="L">L</option>
+    </select>
+
+    <label>Price</label>
+    <input id="pprice" type="number" class="form-control mb-2">
+
+    <label>Stock</label>
+    <input id="pstock" type="number" class="form-control mb-2">
+</div>
+
+<div class="modal-footer">
+    <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+    <button class="btn btn-primary" onclick="saveProduct()">Save</button>
+</div>
+
+</div>
+</div>
+</div>
+
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.min.js"></script>
 
 <script>
-/* ---------------- FIREBASE FIXED ---------------- */
-const firebaseConfig = {
+firebase.initializeApp({
   apiKey: "AIzaSyA-nzm4JKM6QdwVxcVu6uWUeRy9n5hJZpU",
   authDomain: "inventory-system-67e2e.firebaseapp.com",
-  projectId: "inventory-system-67e2e",
-  storageBucket: "inventory-system-67e2e.firebasestorage.app",
-  messagingSenderId: "38184157713",
-  appId: "1:38184157713:web:2a46fee4490e897954a7b0"
-};
+  projectId: "inventory-system-67e2e"
+});
 
-firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
-
-/* ---------------- LOGIN ---------------- */
-function login() {
-    let user = email.value;
-    let pass = password.value;
-
-    if (user === "admin" && pass === "123") {
-        loginScreen.style.display = "none";
-        app.style.display = "block";
-        loadProducts();
-    } else {
-        alert("Incorrect credentials.");
-    }
-}
-
-function logout() {
-    app.style.display = "none";
-    loginScreen.style.display = "block";
-}
-
-/* ---------------- LOAD PRODUCTS ---------------- */
 let products = [];
 
-async function loadProducts() {
+function login(){
+    if(email.value==="admin" && password.value==="123"){
+        loginScreen.style.display="none";
+        app.style.display="block";
+        loadProducts();
+    } else alert("Wrong login");
+}
+
+function logout(){
+    app.style.display="none";
+    loginScreen.style.display="block";
+}
+
+async function loadProducts(){
     const snap = await db.collection("products").get();
-    products = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    products = snap.docs.map(d => ({id:d.id,...d.data()}));
     renderProducts();
 }
 
-/* ---------------- STOCK COLOR ---------------- */
-function colorize(stock) {
-    if (stock <= 3) return "stock-red";
-    if (stock <= 7) return "stock-yellow";
+function colorize(stock){
+    if(stock<=3) return "stock-red";
+    if(stock<=7) return "stock-yellow";
     return "stock-green";
 }
 
-/* ---------------- RENDER TABLE ---------------- */
-function renderProducts() {
-    let body = productBody;
-    body.innerHTML = "";
-    let search = searchBox.value.toLowerCase();
+function renderProducts(){
+    productBody.innerHTML="";
+    let s = searchBox.value.toLowerCase();
 
-    products
-        .filter(p => p.name.toLowerCase().includes(search))
-        .forEach(p => {
-            body.innerHTML += `
-            <tr>
-                <td>${p.name}</td>
-                <td class="${colorize(p.stock)}">${p.stock}</td>
-                <td>₱${p.price.toFixed(2)}</td>
-
-                <td>
-                    <button class="btn btn-success btn-sm me-1" onclick="adjust('${p.id}', 1)">+1</button>
-                    <button class="btn btn-warning btn-sm me-1" onclick="adjust('${p.id}', -1)">-1</button>
-                    <button class="btn btn-primary btn-sm" onclick="openEditModal('${p.id}')">Edit</button>
-                </td>
-            </tr>`;
-        });
+    products.filter(p =>
+        p.name.toLowerCase().includes(s) ||
+        (p.sku||"").toLowerCase().includes(s) ||
+        (p.category||"").toLowerCase().includes(s)
+    ).forEach(p=>{
+        productBody.innerHTML += `
+        <tr>
+            <td>${p.sku||"-"}</td>
+            <td>${p.name}</td>
+            <td><span class="badge ${p.category==="Wet"?"bg-primary":"bg-warning text-dark"}">${p.category||"-"}</span></td>
+            <td>${p.unit}</td>
+            <td class="${colorize(p.stock)}">${p.stock}</td>
+            <td>₱${p.price.toFixed(2)}</td>
+            <td>
+                <button class="btn btn-success btn-sm" onclick="adjust('${p.id}',1)">+1</button>
+                <button class="btn btn-warning btn-sm" onclick="adjust('${p.id}',-1)">-1</button>
+                <button class="btn btn-primary btn-sm" onclick="openEditModal('${p.id}')">Edit</button>
+            </td>
+        </tr>`;
+    });
 }
 
-/* ---------------- ADJUST STOCK ---------------- */
-async function adjust(id, amt) {
-    const ref = db.collection("products").doc(id);
-    const doc = await ref.get();
-    let stock = doc.data().stock + amt;
-    if (stock < 0) stock = 0;
-
-    await ref.update({ stock });
+async function adjust(id,amt){
+    const ref=db.collection("products").doc(id);
+    const doc=await ref.get();
+    let stock=Math.max(0,doc.data().stock+amt);
+    await ref.update({stock});
     loadProducts();
 }
 
-/* ---------------- ADD PRODUCT ---------------- */
-function openAddModal() {
-    modalTitle.innerText = "Add Product";
-    pid.value = "";
-    pname.value = "";
-    pprice.value = "";
-    pstock.value = "";
+function openAddModal(){
+    modalTitle.innerText="Add Product";
+    pid.value="";
+    psku.value="";
+    pname.value="";
+    pcategory.value="";
+    punit.value="g";
+    pprice.value="";
+    pstock.value="";
     new bootstrap.Modal(productModal).show();
 }
 
-/* ---------------- EDIT PRODUCT ---------------- */
-function openEditModal(id) {
-    let p = products.find(x => x.id === id);
-
-    modalTitle.innerText = "Edit Product";
-    pid.value = id;
-    pname.value = p.name;
-    pprice.value = p.price;
-    pstock.value = p.stock;
-
+function openEditModal(id){
+    let p=products.find(x=>x.id===id);
+    modalTitle.innerText="Edit Product";
+    pid.value=id;
+    psku.value=p.sku||"";
+    pname.value=p.name;
+    pcategory.value=p.category||"";
+    punit.value=p.unit||"g";
+    pprice.value=p.price;
+    pstock.value=p.stock;
     new bootstrap.Modal(productModal).show();
 }
 
-/* ---------------- SAVE PRODUCT ---------------- */
-async function saveProduct() {
-    let id = pid.value;
-    let data = {
-        name: pname.value,
-        price: Number(pprice.value),
-        stock: Number(pstock.value)
+async function saveProduct(){
+    let data={
+        sku:psku.value.trim(),
+        name:pname.value,
+        category:pcategory.value,
+        unit:punit.value,
+        price:Number(pprice.value),
+        stock:Number(pstock.value)
     };
 
-    if (id === "") {
+    if(pid.value==="")
         await db.collection("products").add(data);
-    } else {
-        await db.collection("products").doc(id).update(data);
-    }
+    else
+        await db.collection("products").doc(pid.value).update(data);
 
     bootstrap.Modal.getInstance(productModal).hide();
     loadProducts();
 }
 
-/* ---------------- EXPORT CSV ---------------- */
-function exportCSV() {
-    let csv = "Name,Price,Stock\n";
-
-    products.forEach(p => {
-        csv += `${p.name},${p.price},${p.stock}\n`;
+function exportCSV(){
+    let csv="SKU,Name,Category,Unit,Price,Stock\n";
+    products.forEach(p=>{
+        csv+=`${p.sku},${p.name},${p.category},${p.unit},${p.price},${p.stock}\n`;
     });
-
-    const blob = new Blob([csv], { type: "text/csv" });
-    const url = URL.createObjectURL(blob);
-
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "inventory_export.csv";
+    const a=document.createElement("a");
+    a.href=URL.createObjectURL(new Blob([csv]));
+    a.download="inventory.csv";
     a.click();
-
-    URL.revokeObjectURL(url);
 }
 </script>
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.min.js"></script>
-
 </body>
 </html>
-
