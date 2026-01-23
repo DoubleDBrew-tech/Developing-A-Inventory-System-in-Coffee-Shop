@@ -14,13 +14,7 @@ body {
     color: #1f2937;
 }
 
-/* LOGIN (leave simple) */
-#loginScreen .card {
-    border-radius: 8px;
-    border: 1px solid #e5e7eb;
-}
-
-/* TOP BAR */
+/* NAV */
 .nav-top {
     background: #ffffff;
     border-bottom: 1px solid #e5e7eb;
@@ -28,12 +22,6 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
-}
-
-.nav-top h4 {
-    margin: 0;
-    font-weight: 600;
-    color: #111827;
 }
 
 /* MAIN CONTAINER */
@@ -44,44 +32,41 @@ body {
     border: 1px solid #e5e7eb;
 }
 
-/* TABLE RESET */
-.table {
-    border-collapse: collapse;
+/* PRODUCT LIST */
+.product-list {
+    display: grid;
+    gap: 16px;
+}
+
+/* PRODUCT CARD */
+.product-card {
     background: #ffffff;
-    margin-bottom: 0;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 16px;
 }
 
-.table thead {
-    background: #f9fafb;
+/* ROWS */
+.product-row {
+    display: grid;
+    grid-template-columns: 130px 1fr;
+    margin-bottom: 6px;
+    font-size: 14px;
 }
 
-.table th {
-    font-size: 13px;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
+.product-row label {
     color: #6b7280;
-    border-bottom: 1px solid #e5e7eb;
+    font-weight: 600;
 }
 
-.table td {
-    vertical-align: middle;
-    border-bottom: 1px solid #f1f5f9;
-}
-
-/* ROW HOVER */
-.table tbody tr:hover {
-    background: #f9fafb;
-}
-
-/* REMOVE BOOTSTRAP BORDERS */
-.table-bordered > :not(caption) > * > * {
-    border: none;
+/* ACTIONS */
+.product-actions {
+    margin-top: 12px;
 }
 
 /* BADGES */
 .badge {
     font-size: 12px;
-    font-weight: 500;
     padding: 4px 8px;
     border-radius: 6px;
 }
@@ -96,41 +81,15 @@ body {
     color: #92400e !important;
 }
 
-/* INPUTS */
-.form-control, .form-select {
-    border-radius: 6px;
-    border: 1px solid #d1d5db;
-}
-
-.form-control:focus, .form-select:focus {
-    border-color: #2563eb;
-    box-shadow: none;
-}
-
-/* BUTTONS */
-.btn {
-    border-radius: 6px;
-}
-
-.btn-primary {
-    background: #2563eb;
-    border: none;
-}
-
-.btn-secondary {
-    background: #6b7280;
-    border: none;
-}
-
-.btn-danger {
-    background: #dc2626;
-    border: none;
-}
-
 /* STOCK COLORS */
 .stock-red { color: #dc2626; font-weight: 600; }
 .stock-yellow { color: #ca8a04; font-weight: 600; }
 .stock-green { color: #16a34a; font-weight: 600; }
+
+/* INPUTS */
+.form-control, .form-select {
+    border-radius: 6px;
+}
 </style>
 </head>
 
@@ -164,20 +123,7 @@ body {
     <input id="searchBox" class="form-control w-25" placeholder="Search..." onkeyup="renderProducts()">
 </div>
 
-<table class="table table-bordered shadow-sm">
-<thead>
-<tr>
-    <th>SKU</th>
-    <th>Name</th>
-    <th>Category</th>
-    <th>Unit</th>
-    <th>Stock</th>
-    <th>Price</th>
-    <th width="220">Actions</th>
-</tr>
-</thead>
-<tbody id="productBody"></tbody>
-</table>
+<div id="productBody" class="product-list"></div>
 
 </div>
 </div>
@@ -209,12 +155,15 @@ body {
     <input id="pname" class="form-control mb-2">
 
     <label>Unit</label>
-    <select id="punit" class="form-select mb-2">
-        <option value="g">g</option>
-        <option value="kg">kg</option>
-        <option value="ml">ml</option>
-        <option value="L">L</option>
-    </select>
+    <div class="d-flex gap-2 mb-2">
+        <input id="punitValue" type="number" class="form-control" placeholder="Amount">
+        <select id="punitType" class="form-select">
+            <option value="g">g</option>
+            <option value="kg">kg</option>
+            <option value="ml">ml</option>
+            <option value="L">L</option>
+        </select>
+    </div>
 
     <label>Price</label>
     <input id="pprice" type="number" class="form-control mb-2">
@@ -246,6 +195,7 @@ firebase.initializeApp({
 const db = firebase.firestore();
 let products = [];
 
+/* LOGIN */
 function login(){
     if(email.value==="admin" && password.value==="123"){
         loginScreen.style.display="none";
@@ -259,18 +209,21 @@ function logout(){
     loginScreen.style.display="block";
 }
 
+/* LOAD */
 async function loadProducts(){
     const snap = await db.collection("products").get();
     products = snap.docs.map(d => ({id:d.id,...d.data()}));
     renderProducts();
 }
 
+/* STOCK COLOR */
 function colorize(stock){
     if(stock<=3) return "stock-red";
     if(stock<=7) return "stock-yellow";
     return "stock-green";
 }
 
+/* RENDER */
 function renderProducts(){
     productBody.innerHTML="";
     let s = searchBox.value.toLowerCase();
@@ -281,22 +234,27 @@ function renderProducts(){
         (p.category||"").toLowerCase().includes(s)
     ).forEach(p=>{
         productBody.innerHTML += `
-        <tr>
-            <td>${p.sku||"-"}</td>
-            <td>${p.name}</td>
-            <td><span class="badge ${p.category==="Wet"?"bg-primary":"bg-warning text-dark"}">${p.category||"-"}</span></td>
-            <td>${p.unit}</td>
-            <td class="${colorize(p.stock)}">${p.stock}</td>
-            <td>₱${p.price.toFixed(2)}</td>
-            <td>
+        <div class="product-card">
+            <div class="product-row"><label>SKU</label><div>${p.sku||"-"}</div></div>
+            <div class="product-row"><label>Name</label><div>${p.name}</div></div>
+            <div class="product-row">
+                <label>Category</label>
+                <div><span class="badge ${p.category==="Wet"?"bg-primary":"bg-warning"}">${p.category||"-"}</span></div>
+            </div>
+            <div class="product-row"><label>Unit</label><div>${p.unitValue||""} ${p.unitType||""}</div></div>
+            <div class="product-row"><label>Stock</label><div class="${colorize(p.stock)}">${p.stock}</div></div>
+            <div class="product-row"><label>Price</label><div>₱${p.price.toFixed(2)}</div></div>
+
+            <div class="product-actions">
                 <button class="btn btn-success btn-sm" onclick="adjust('${p.id}',1)">+1</button>
                 <button class="btn btn-warning btn-sm" onclick="adjust('${p.id}',-1)">-1</button>
                 <button class="btn btn-primary btn-sm" onclick="openEditModal('${p.id}')">Edit</button>
-            </td>
-        </tr>`;
+            </div>
+        </div>`;
     });
 }
 
+/* ADJUST */
 async function adjust(id,amt){
     const ref=db.collection("products").doc(id);
     const doc=await ref.get();
@@ -305,13 +263,15 @@ async function adjust(id,amt){
     loadProducts();
 }
 
+/* MODALS */
 function openAddModal(){
     modalTitle.innerText="Add Product";
     pid.value="";
     psku.value="";
     pname.value="";
     pcategory.value="";
-    punit.value="g";
+    punitValue.value="";
+    punitType.value="g";
     pprice.value="";
     pstock.value="";
     new bootstrap.Modal(productModal).show();
@@ -324,18 +284,21 @@ function openEditModal(id){
     psku.value=p.sku||"";
     pname.value=p.name;
     pcategory.value=p.category||"";
-    punit.value=p.unit||"g";
+    punitValue.value=p.unitValue||"";
+    punitType.value=p.unitType||"g";
     pprice.value=p.price;
     pstock.value=p.stock;
     new bootstrap.Modal(productModal).show();
 }
 
+/* SAVE */
 async function saveProduct(){
     let data={
         sku:psku.value.trim(),
         name:pname.value,
         category:pcategory.value,
-        unit:punit.value,
+        unitValue:Number(punitValue.value),
+        unitType:punitType.value,
         price:Number(pprice.value),
         stock:Number(pstock.value)
     };
@@ -349,10 +312,11 @@ async function saveProduct(){
     loadProducts();
 }
 
+/* CSV */
 function exportCSV(){
-    let csv="SKU,Name,Category,Unit,Price,Stock\n";
+    let csv="SKU,Name,Category,UnitValue,UnitType,Price,Stock\n";
     products.forEach(p=>{
-        csv+=`${p.sku},${p.name},${p.category},${p.unit},${p.price},${p.stock}\n`;
+        csv+=`${p.sku},${p.name},${p.category},${p.unitValue},${p.unitType},${p.price},${p.stock}\n`;
     });
     const a=document.createElement("a");
     a.href=URL.createObjectURL(new Blob([csv]));
@@ -363,4 +327,3 @@ function exportCSV(){
 
 </body>
 </html>
-
