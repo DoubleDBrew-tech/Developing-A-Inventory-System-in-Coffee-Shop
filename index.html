@@ -9,59 +9,128 @@
 
 <style>
 body {
-    background: linear-gradient(135deg, #0f172a, #020617);
-    font-family: "Inter", system-ui, sans-serif;
-    color: #e5e7eb;
+    background: #f4f6f8;
+    font-family: "Segoe UI", system-ui, sans-serif;
+    color: #1f2937;
 }
 
-.card, .modal-content {
-    background: rgba(15, 23, 42, 0.85);
-    backdrop-filter: blur(10px);
-    border-radius: 16px;
-    border: 1px solid rgba(255,255,255,0.08);
-    color: #e5e7eb;
+/* LOGIN (leave simple) */
+#loginScreen .card {
+    border-radius: 8px;
+    border: 1px solid #e5e7eb;
 }
 
+/* TOP BAR */
 .nav-top {
-    background: rgba(2, 6, 23, 0.9);
+    background: #ffffff;
+    border-bottom: 1px solid #e5e7eb;
     padding: 14px 25px;
     display: flex;
     justify-content: space-between;
     align-items: center;
 }
 
+.nav-top h4 {
+    margin: 0;
+    font-weight: 600;
+    color: #111827;
+}
+
+/* MAIN CONTAINER */
+#app .container {
+    background: #ffffff;
+    padding: 20px;
+    border-radius: 8px;
+    border: 1px solid #e5e7eb;
+}
+
+/* TABLE RESET */
 .table {
-    color: #e5e7eb;
+    border-collapse: collapse;
+    background: #ffffff;
+    margin-bottom: 0;
 }
 
 .table thead {
-    background: #020617;
+    background: #f9fafb;
 }
 
+.table th {
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #6b7280;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.table td {
+    vertical-align: middle;
+    border-bottom: 1px solid #f1f5f9;
+}
+
+/* ROW HOVER */
 .table tbody tr:hover {
-    background: rgba(255,255,255,0.04);
+    background: #f9fafb;
 }
 
+/* REMOVE BOOTSTRAP BORDERS */
+.table-bordered > :not(caption) > * > * {
+    border: none;
+}
+
+/* BADGES */
+.badge {
+    font-size: 12px;
+    font-weight: 500;
+    padding: 4px 8px;
+    border-radius: 6px;
+}
+
+.bg-primary {
+    background-color: #e0f2fe !important;
+    color: #0369a1 !important;
+}
+
+.bg-warning {
+    background-color: #fef3c7 !important;
+    color: #92400e !important;
+}
+
+/* INPUTS */
 .form-control, .form-select {
-    background: #020617;
-    border: 1px solid rgba(255,255,255,0.1);
-    color: #e5e7eb;
+    border-radius: 6px;
+    border: 1px solid #d1d5db;
 }
 
 .form-control:focus, .form-select:focus {
-    border-color: #38bdf8;
+    border-color: #2563eb;
     box-shadow: none;
 }
 
-.stock-red { color: #f87171; font-weight: 600; }
-.stock-yellow { color: #facc15; font-weight: 600; }
-.stock-green { color: #4ade80; font-weight: 600; }
-
-.badge {
-    border-radius: 12px;
-    padding: 6px 10px;
-    font-size: 0.85rem;
+/* BUTTONS */
+.btn {
+    border-radius: 6px;
 }
+
+.btn-primary {
+    background: #2563eb;
+    border: none;
+}
+
+.btn-secondary {
+    background: #6b7280;
+    border: none;
+}
+
+.btn-danger {
+    background: #dc2626;
+    border: none;
+}
+
+/* STOCK COLORS */
+.stock-red { color: #dc2626; font-weight: 600; }
+.stock-yellow { color: #ca8a04; font-weight: 600; }
+.stock-green { color: #16a34a; font-weight: 600; }
 </style>
 </head>
 
@@ -294,3 +363,4 @@ function exportCSV(){
 
 </body>
 </html>
+
