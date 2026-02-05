@@ -197,16 +197,22 @@ let products = [];
 
 /* Login */
 function login(){
-    if(email.value==="admin" && password.value==="123"){
-        loginScreen.style.display="none";
-        app.style.display="block";
-        loadProducts();
-    } else alert("Wrong login");
+  if(email.value === "admin" && password.value === "123"){
+    localStorage.setItem("loggedIn", "true"); 
+
+    loginScreen.style.display = "none";
+    app.style.display = "block";
+    loadProducts();
+  } else {
+    alert("Wrong login");
+  }
 }
 
 function logout(){
-    app.style.display="none";
-    loginScreen.style.display="block";
+  localStorage.removeItem("loggedIn"); 
+
+  app.style.display = "none";
+  loginScreen.style.display = "block";
 }
 
 /* Load */
@@ -215,6 +221,17 @@ async function loadProducts(){
     products = snap.docs.map(d => ({id:d.id,...d.data()}));
     renderProducts();
 }
+
+    window.onload = function () {
+  if (localStorage.getItem("loggedIn") === "true") {
+    loginScreen.style.display = "none";
+    app.style.display = "block";
+    loadProducts();
+  } else {
+    loginScreen.style.display = "block";
+    app.style.display = "none";
+  }
+};
 
 /* Stock color function */
 function colorize(stock){
@@ -327,4 +344,5 @@ function exportCSV(){
 
 </body>
 </html>
+
 
