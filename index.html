@@ -886,11 +886,26 @@
 
             if (isRoomHost) {
                 document.getElementById("mediaControllerCard").style.display = "block";
-                if(lockOverlay) lockOverlay.style.display = "none"; 
+                if(lockOverlay) {
+                    lockOverlay.style.display = "none";
+                    lockOverlay.removeAttribute("data-activated");
+                    lockOverlay.innerHTML = "";
+                }
                 if(player) player.controls = true;
             } else {
                 document.getElementById("mediaControllerCard").style.display = "none";
-                if(lockOverlay) lockOverlay.style.display = "block"; 
+                if(lockOverlay) {
+                    lockOverlay.style.display = "flex";
+                    // If guest browser pipeline hasn't been unlocked via a manual gesture yet, inject an active gate button
+                    if (!lockOverlay.hasAttribute("data-activated")) {
+                        lockOverlay.style.alignItems = "center";
+                        lockOverlay.style.justifyContent = "center";
+                        lockOverlay.style.background = "rgba(0, 0, 0, 0.75)";
+                        lockOverlay.style.backdropFilter = "blur(4px)";
+                        lockOverlay.style.webkitBackdropFilter = "blur(4px)";
+                        lockOverlay.innerHTML = `<button class="btn btn-danger fw-bold py-2 px-4 shadow-lg" style="pointer-events: auto; z-index: 25; border-radius: 30px;" onclick="activateMobileGuestPlayback()">Tap to Sync Room Audio</button>`;
+                    }
+                }
                 if(player) player.controls = false; 
             }
 
@@ -912,15 +927,43 @@
                     player.currentTime = data.currentTime;
                 }
 
-                if (data.playing && player.paused) {
-                    isInternalUpdate = true;
-                    player.play().catch(() => {});
-                } else if (!data.playing && !player.paused) {
-                    isInternalUpdate = true;
-                    player.pause();
+                // Only make auto-play calls if the interaction state button has already been clicked
+                if (lockOverlay && lockOverlay.hasAttribute("data-activated")) {
+                    if (data.playing && player.paused) {
+                        isInternalUpdate = true;
+                        player.play().catch((err) => {
+                            console.log("Auto-play blocked by mobile framework rules:", err);
+                        });
+                    } else if (!data.playing && !player.paused) {
+                        isInternalUpdate = true;
+                        player.pause();
+                    }
                 }
             }
         });
+    }
+
+    function activateMobileGuestPlayback() {
+        if (!player) return;
+        
+        // 1. Immediately fire user hardware action gesture to unlock audio sync streams
+        player.muted = false;
+        
+        // 2. Clear block visuals but leave raw layer active to stop unwanted clicks dropping down to default controls
+        const lockOverlay = document.getElementById("guestLockOverlay");
+        lockOverlay.setAttribute("data-activated", "true");
+        lockOverlay.style.background = "rgba(0,0,0,0)";
+        lockOverlay.style.backdropFilter = "none";
+        lockOverlay.style.webkitBackdropFilter = "none";
+        lockOverlay.innerHTML = "";
+        
+        // 3. Match timeline position right up to host's configuration metrics
+        isInternalUpdate = true;
+        player.currentTime = lastKnownHostState.currentTime;
+        
+        if (lastKnownHostState.playing) {
+            player.play().catch(()=>{});
+        }
     }
 
     function renderYouTubeIframePlayer(embedUrl) {
