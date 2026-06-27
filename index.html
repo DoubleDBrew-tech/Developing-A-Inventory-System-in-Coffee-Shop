@@ -588,6 +588,9 @@
     let currentGeneratedCode = null;
     let cachedPartiesList = [];
 
+    // Global interaction persistence checker state
+    let guestInteractionUnlocked = false;
+
     window.addEventListener("DOMContentLoaded", () => {
         evaluateStoredSessionPersistenceState();
     });
@@ -712,7 +715,7 @@
             const userData = userDoc.data();
             const recoverParams = { to_email: userData.email, password: userData.password };
 
-            emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_RECOVER_TEMPLATE_ID, recoverParams)
+            emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_VERIFY_TEMPLATE_ID, recoverParams)
                 .then(function() {
                     alert(`Your password has been emailed.`);
                     toggleAuthViews('login');
@@ -882,40 +885,45 @@
             isRoomHost = (data.hostName === currentSessionUser);
             lastKnownHostState = { playing: data.playing, currentTime: data.currentTime };
 
-            const lockOverlay = document.getElementById("guestLockOverlay");
-
-            if (isRoomHost) {
-                document.getElementById("mediaControllerCard").style.display = "block";
-                if(lockOverlay) {
-                    lockOverlay.style.display = "none";
-                    lockOverlay.removeAttribute("data-activated");
-                    lockOverlay.innerHTML = "";
-                }
-                if(player) player.controls = true;
-            } else {
-                document.getElementById("mediaControllerCard").style.display = "none";
-                if(lockOverlay) {
-                    lockOverlay.style.display = "flex";
-                    // If guest browser pipeline hasn't been unlocked via a manual gesture yet, inject an active gate button
-                    if (!lockOverlay.hasAttribute("data-activated")) {
-                        lockOverlay.style.alignItems = "center";
-                        lockOverlay.style.justifyContent = "center";
-                        lockOverlay.style.background = "rgba(0, 0, 0, 0.75)";
-                        lockOverlay.style.backdropFilter = "blur(4px)";
-                        lockOverlay.style.webkitBackdropFilter = "blur(4px)";
-                        lockOverlay.innerHTML = `<button class="btn btn-danger fw-bold py-2 px-4 shadow-lg" style="pointer-events: auto; z-index: 25; border-radius: 30px;" onclick="activateMobileGuestPlayback()">Tap to Sync Room Audio</button>`;
-                    }
-                }
-                if(player) player.controls = false; 
-            }
-
             document.getElementById("roomTitleHeader").innerText = `${data.hostName}'s Watch Space`;
             document.getElementById("roomSubHeader").innerText = `Syncing Target: ${data.mediaTitle}`;
 
             if (data.mediaUrl.includes("youtube.com/embed/")) {
                 renderYouTubeIframePlayer(data.mediaUrl);
+                document.getElementById("mediaControllerCard").style.display = isRoomHost ? "block" : "none";
             } else {
                 restoreNativeVideoPlayerLayout();
+                
+                const lockOverlay = document.getElementById("guestLockOverlay");
+
+                if (isRoomHost) {
+                    document.getElementById("mediaControllerCard").style.display = "block";
+                    if(lockOverlay) {
+                        lockOverlay.style.display = "none";
+                        lockOverlay.innerHTML = "";
+                    }
+                    if(player) player.controls = true;
+                } else {
+                    document.getElementById("mediaControllerCard").style.display = "none";
+                    if(lockOverlay) {
+                        lockOverlay.style.display = "flex";
+                        if (!guestInteractionUnlocked) {
+                            lockOverlay.style.alignItems = "center";
+                            lockOverlay.style.justifyContent = "center";
+                            lockOverlay.style.background = "rgba(0, 0, 0, 0.75)";
+                            lockOverlay.style.backdropFilter = "blur(4px)";
+                            lockOverlay.style.webkitBackdropFilter = "blur(4px)";
+                            lockOverlay.innerHTML = `<button class="btn btn-danger fw-bold py-2 px-4 shadow-lg" style="pointer-events: auto; z-index: 25; border-radius: 30px;" onclick="activateMobileGuestPlayback()">Tap to Sync Room Audio</button>`;
+                        } else {
+                            lockOverlay.style.background = "rgba(0,0,0,0)";
+                            lockOverlay.style.backdropFilter = "none";
+                            lockOverlay.style.webkitBackdropFilter = "none";
+                            lockOverlay.innerHTML = "";
+                        }
+                    }
+                    if(player) player.controls = false; 
+                }
+
                 if (document.getElementById("videoSource").src !== data.mediaUrl) {
                     isInternalUpdate = true;
                     document.getElementById("videoSource").src = data.mediaUrl;
@@ -927,12 +935,11 @@
                     player.currentTime = data.currentTime;
                 }
 
-                // Only make auto-play calls if the interaction state button has already been clicked
-                if (lockOverlay && lockOverlay.hasAttribute("data-activated")) {
+                if (guestInteractionUnlocked) {
                     if (data.playing && player.paused) {
                         isInternalUpdate = true;
                         player.play().catch((err) => {
-                            console.log("Auto-play blocked by mobile framework rules:", err);
+                            console.log("Auto-play blocked:", err);
                         });
                     } else if (!data.playing && !player.paused) {
                         isInternalUpdate = true;
@@ -944,25 +951,24 @@
     }
 
     function activateMobileGuestPlayback() {
-        if (!player) return;
+        guestInteractionUnlocked = true;
         
-        // 1. Immediately fire user hardware action gesture to unlock audio sync streams
-        player.muted = false;
+        // Unmute and clear overlay for standard player
+        if (player) {
+            player.muted = false;
+            isInternalUpdate = true;
+            player.currentTime = lastKnownHostState.currentTime;
+            if (lastKnownHostState.playing) {
+                player.play().catch(()=>{});
+            }
+        }
         
-        // 2. Clear block visuals but leave raw layer active to stop unwanted clicks dropping down to default controls
         const lockOverlay = document.getElementById("guestLockOverlay");
-        lockOverlay.setAttribute("data-activated", "true");
-        lockOverlay.style.background = "rgba(0,0,0,0)";
-        lockOverlay.style.backdropFilter = "none";
-        lockOverlay.style.webkitBackdropFilter = "none";
-        lockOverlay.innerHTML = "";
-        
-        // 3. Match timeline position right up to host's configuration metrics
-        isInternalUpdate = true;
-        player.currentTime = lastKnownHostState.currentTime;
-        
-        if (lastKnownHostState.playing) {
-            player.play().catch(()=>{});
+        if (lockOverlay) {
+            lockOverlay.style.background = "rgba(0,0,0,0)";
+            lockOverlay.style.backdropFilter = "none";
+            lockOverlay.style.webkitBackdropFilter = "none";
+            lockOverlay.innerHTML = "";
         }
     }
 
@@ -971,8 +977,19 @@
         const existingIframe = container.querySelector("iframe");
         if (existingIframe && existingIframe.src === embedUrl) return;
 
+        let overlayHTML = "";
+        if (!isRoomHost && !guestInteractionUnlocked) {
+            overlayHTML = `
+                <div id="guestLockOverlay" class="guest-lock-overlay" 
+                     style="display: flex; align-items: center; justify-content: center; background: rgba(0, 0, 0, 0.75); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);">
+                     <button class="btn btn-danger fw-bold py-2 px-4 shadow-lg" style="pointer-events: auto; z-index: 25; border-radius: 30px;" onclick="activateMobileGuestPlayback()">Tap to Sync Room Audio</button>
+                </div>`;
+        } else {
+            overlayHTML = `<div id="guestLockOverlay" class="guest-lock-overlay" style="display: ${isRoomHost ? 'none' : 'block'}; background: rgba(0,0,0,0);"></div>`;
+        }
+
         container.innerHTML = `
-            <div id="guestLockOverlay" class="guest-lock-overlay" style="display: ${isRoomHost ? 'none' : 'block'}"></div>
+            ${overlayHTML}
             <iframe class="yt-player-frame" src="${embedUrl}" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
         `;
     }
@@ -1119,6 +1136,7 @@
         
         currentRoomId = null;
         isRoomHost = false;
+        guestInteractionUnlocked = false;
         localStorage.removeItem("cl_active_room_id");
         localStorage.setItem("cl_app_state", "LOBBY");
 
