@@ -84,7 +84,7 @@
             box-shadow: 0 0 8px rgba(220, 53, 69, 0.5) !important;
         }
 
-        /* --- New Welcome Screen Layout --- */
+        /* --- Welcome Screen Layout --- */
         #welcomeScreen {
             position: fixed;
             top: 0;
@@ -220,7 +220,7 @@
             border: 1px solid #333342;
             border-radius: 8px;
             padding: 14px;
-            margin-bottom: 10px;
+            margin-bottom: 15px;
             transition: all 0.2s;
         }
         .party-card.active {
@@ -252,6 +252,14 @@
             padding: 4px 10px;
             border-radius: 20px;
             font-weight: 600;
+        }
+
+        /* Lobby Explorer Styles */
+        .lobby-explorer-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 20px;
+            padding-top: 15px;
         }
     </style>
 </head>
@@ -334,14 +342,12 @@
     </div>
 </div>
 
-<!-- Updated Rollercoaster Screen Base Structure -->
 <div id="welcomeScreen">
     <div class="embedded-header">CL WatchParty</div>
     <div class="welcome-title-text">Welcome WatchPartygoers</div>
     <button class="btn btn-proceed" onclick="enterApp()">Proceed to WatchParty</button>
 </div>
 
-<!-- Admin Code Display Screen Module Overlay -->
 <div id="adminRevealBlock">
     <div class="animated-text" id="revealText"></div>
     <button class="btn btn-sm btn-outline-light mt-3" onclick="closeAdminPanel()">Return to Theater</button>
@@ -349,7 +355,6 @@
 
 <div id="app">
     <aside class="sidebar">
-        <!-- Center-Top Relocated Admin Interactive Workspace Trigger -->
         <div class="text-center mb-3 border-bottom border-secondary pb-3">
             <button class="btn btn-sm btn-outline-danger w-100 fw-bold" onclick="promptAdminAccess()">🌹 ILabLeigh</button>
         </div>
@@ -359,31 +364,31 @@
                 <div class="rounded-circle bg-danger" style="width:12px; height:12px;"></div>
                 <h5 class="mb-0 fw-bold">Rave Watch Hub</h5>
             </div>
-            <button class="btn btn-sm btn-outline-secondary text-muted" onclick="window.location.reload()">Exit</button>
+            <button id="exitPartyBtn" class="btn btn-sm btn-outline-danger" style="display: none;" onclick="exitCurrentParty()">Exit Party</button>
         </div>
 
-        <div class="section-title">Your Cloud Library</div>
-        <a href="https://drive.google.com/" target="_blank" class="drive-btn mb-2">
-            <img src="https://upload.wikimedia.org/wikipedia/commons/1/12/Google_Drive_icon_%282020%29.svg" alt="Drive" style="width:20px;">
-            <span>Open Google Drive</span>
-        </a>
+        <div id="cloudLibrarySection" style="display: none;">
+            <div class="section-title">Your Cloud Library</div>
+            <a href="https://drive.google.com/" target="_blank" class="drive-btn mb-3">
+                <img src="https://upload.wikimedia.org/wikipedia/commons/1/12/Google_Drive_icon_%282020%29.svg" alt="Drive" style="width:20px;">
+                <span>Open Google Drive</span>
+            </a>
+        </div>
         
-        <!-- Live Movie Selectors Configuration Block -->
-        <div class="section-title">Watch Party Manager</div>
+        <div class="section-title">Library Manager</div>
         <div class="bg-dark p-2 rounded border border-secondary mb-3">
-            <label class="form-label small text-muted fw-bold mb-1">Select Session Movie Source</label>
+            <div class="mb-2">
+                <input type="text" id="searchPartyInput" class="form-control form-control-sm bg-secondary text-white border-0" placeholder="Search watch party name..." oninput="filterPartiesFromSearch()">
+            </div>
+            
+            <label class="form-label small text-muted fw-bold mb-1">Create a Hostparty</label>
             <select id="selectedMovieOption" class="form-select form-select-sm bg-secondary text-white border-0 mb-2">
                 <option value="https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4|Big Buck Bunny (Sample)">Big Buck Bunny (Sample)</option>
                 <option value="https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4|Elephants Dream (Sample)">Elephants Dream (Sample)</option>
                 <option value="https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4|Sintel Animated (Sample)">Sintel Animated Short</option>
                 <option value="CUSTOM|Load Custom Content URL Inside Theater">Use Custom Video Link...</option>
             </select>
-            <button class="btn btn-danger btn-sm w-100 fw-bold py-2" onclick="createNewParty()">🎬 Host Watch Session</button>
-        </div>
-
-        <div class="section-title">Available Active Host Rooms</div>
-        <div id="activePartiesList">
-            <div class="text-muted small text-center py-3">No active parties found. Click above to host!</div>
+            <button id="hostSessionBtn" class="btn btn-danger btn-sm w-100 fw-bold py-2" onclick="createNewParty()">🎬 Host Watch Session</button>
         </div>
     </aside>
 
@@ -396,18 +401,26 @@
             <div id="syncStatusIndicator" class="status-pill bg-secondary text-white">Standalone Offline Mode</div>
         </header>
 
-        <div class="video-container mb-3">
-            <video id="sharedPlayer" controls playsinline>
-                <source id="videoSource" src="https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4" type="video/mp4">
-            </video>
+        <div id="activeTheaterView" style="display: none;">
+            <div class="video-container mb-3">
+                <video id="sharedPlayer" controls playsinline>
+                    <source id="videoSource" src="https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4" type="video/mp4">
+                </video>
+            </div>
+
+            <div class="card bg-dark border-secondary p-3" id="mediaControllerCard">
+                <label class="form-label small text-muted fw-bold">Update Active Room Media Target URL</label>
+                <div class="input-group">
+                    <input type="text" id="targetMediaUrl" class="form-control bg-secondary text-white border-0" placeholder="Paste your direct video link or Google Drive URL stream link...">
+                    <button class="btn btn-danger" onclick="updateRoomMedia()">Load Target</button>
+                </div>
+            </div>
         </div>
 
-        <div class="card bg-dark border-secondary p-3" id="mediaControllerCard" style="display: none;">
-            <label class="form-label small text-muted fw-bold">Update Active Room Media Target URL</label>
-            <div class="input-group">
-                <input type="text" id="targetMediaUrl" class="form-control bg-secondary text-white border-0" placeholder="Paste your direct video link or Google Drive URL stream link...">
-                <button class="btn btn-danger" onclick="updateRoomMedia()">Load Target</button>
-            </div>
+        <div id="lobbyExplorerView" class="w-100">
+            <h5 class="border-bottom border-secondary pb-2 mb-3 text-muted">Active Watch Parties Online</h5>
+            <div id="activePartiesGrid" class="lobby-explorer-grid">
+                </div>
         </div>
     </main>
 </div>
@@ -441,6 +454,7 @@
 
     let pendingRegistrationData = null;
     let currentGeneratedCode = null;
+    let cachedPartiesList = [];
 
     function cleanUsernameInput(element) {
         element.value = element.value.replace(/[^a-zA-Z0-9]/g, '');
@@ -560,12 +574,10 @@
         }, 600);
     }
 
-    /* --- Protected Admin Access Controllers --- */
     function promptAdminAccess() {
         const passwordCheck = prompt("Enter Admin Access Token Password to View Secret Frame:");
         if (passwordCheck === null) return;
         
-        // Replace with your real admin password
         if (passwordCheck === "leigh123" || passwordCheck === "admin") {
             document.getElementById("adminRevealBlock").style.display = "flex";
             document.getElementById("revealText").innerHTML = "";
@@ -596,46 +608,66 @@
             document.getElementById("app").style.display = "grid";
             setTimeout(() => { document.getElementById("app").style.opacity = "1"; }, 50);
             listenForGlobalParties();
+            startStaleRoomsCleanupRoutine();
         }, 800);
     }
 
-    /* --- Co-Watch Realtime Sync Engines --- */
+    /* Realtime Listener Sync Pipeline */
     function listenForGlobalParties() {
-        const activeThreshold = Date.now() - (4 * 60 * 60 * 1000);
+        const activeThreshold = Date.now() - (12 * 60 * 60 * 1000); 
         db.collection("rave_parties")
           .where("createdAt", ">", activeThreshold)
           .onSnapshot(snapshot => {
-              const listContainer = document.getElementById("activePartiesList");
-              listContainer.innerHTML = "";
-
-              if(snapshot.empty) {
-                  listContainer.innerHTML = `<div class="text-muted small text-center py-3">No active parties found.</div>`;
-                  return;
-              }
-
+              cachedPartiesList = [];
               snapshot.forEach(doc => {
-                  const party = doc.data();
-                  const isCurrent = (doc.id === currentRoomId);
-                  const isHost = (party.hostName === currentSessionUser);
-                  
-                  listContainer.innerHTML += `
-                      <div class="party-card ${isCurrent ? 'active' : ''}">
-                          <div class="d-flex justify-content-between align-items-start">
-                              <div class="fw-bold text-truncate text-white" style="max-width: 200px;">🎬 ${party.hostName}'s Room</div>
-                              ${isHost ? `<button class="btn btn-sm btn-dark text-danger border-0 p-0 px-1" title="Delete Party Room" onclick="deletePartyRoom('${doc.id}')">❌</button>` : ''}
-                          </div>
-                          <div class="small text-muted mb-2 text-truncate" style="font-size:11px;">Track: ${party.mediaTitle || 'Sample Video'}</div>
-                          <button class="btn btn-sm w-100 ${isCurrent ? 'btn-outline-danger disabled' : 'btn-danger'}" 
-                                  onclick="connectToPartyRoom('${doc.id}')">
-                              ${isCurrent ? 'Connected' : 'Join Party'}
-                          </button>
-                      </div>
-                  `;
+                  cachedPartiesList.push({ id: doc.id, ...doc.data() });
               });
+              renderPartiesDisplay(cachedPartiesList);
           });
     }
 
+    function renderPartiesDisplay(partiesArray) {
+        const gridContainer = document.getElementById("activePartiesGrid");
+        gridContainer.innerHTML = "";
+
+        if(partiesArray.length === 0) {
+            gridContainer.innerHTML = `<div class="text-muted text-center py-5 w-100">No matching online rooms found. Start hosting one over on the left bar!</div>`;
+            return;
+        }
+
+        partiesArray.forEach(party => {
+            const isCurrent = (party.id === currentRoomId);
+            const isHost = (party.hostName === currentSessionUser);
+            
+            gridContainer.innerHTML += `
+                <div class="party-card ${isCurrent ? 'active' : ''}">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <div class="fw-bold text-truncate text-white fs-5">🎬 ${party.hostName}'s Room</div>
+                        ${isHost ? `<button class="btn btn-sm btn-dark text-danger border-0 p-0 px-2" title="Delete Party Room" onclick="deletePartyRoom('${party.id}')">❌ Delete</button>` : ''}
+                    </div>
+                    <div class="small text-muted mb-3 text-truncate">Active Track: <b>${party.mediaTitle || 'Sample Video'}</b></div>
+                    <button class="btn btn-sm w-100 ${isCurrent ? 'btn-outline-danger disabled' : 'btn-danger'}" 
+                            onclick="connectToPartyRoom('${party.id}')" ${currentRoomId && !isCurrent ? 'disabled' : ''}>
+                        ${isCurrent ? 'Currently Connected' : currentRoomId ? 'Leave Current Room First' : 'Join Watch Party'}
+                    </button>
+                </div>
+            `;
+        });
+    }
+
+    function filterPartiesFromSearch() {
+        const criteria = document.getElementById("searchPartyInput").value.trim().toLowerCase();
+        if(!criteria) {
+            renderPartiesDisplay(cachedPartiesList);
+            return;
+        }
+        const filtered = cachedPartiesList.filter(p => p.hostName.toLowerCase().includes(criteria));
+        renderPartiesDisplay(filtered);
+    }
+
     async function createNewParty() {
+        if(currentRoomId) return alert("You are already inside an active session. Please exit your current party first!");
+
         const dropdown = document.getElementById("selectedMovieOption");
         const [movieUrl, movieTitle] = dropdown.value.split('|');
 
@@ -652,34 +684,28 @@
         connectToPartyRoom(newPartyRef.id);
     }
 
-    async function deletePartyRoom(roomId) {
-        if (!confirm("Are you sure you want to terminate and close this watch party session?")) return;
-        
-        if (currentRoomId === roomId) {
-            if (roomUnsubscribe) roomUnsubscribe();
-            currentRoomId = null;
-            document.getElementById("mediaControllerCard").style.display = "none";
-            document.getElementById("syncStatusIndicator").className = "status-pill bg-secondary text-white";
-            document.getElementById("syncStatusIndicator").innerText = "Standalone Offline Mode";
-            document.getElementById("roomTitleHeader").innerText = "Viewing Lobby";
-            document.getElementById("roomSubHeader").innerText = "Join or create a live sync room to get started.";
-            player.pause();
-        }
-        
-        await db.collection("rave_parties").doc(roomId).delete();
-        alert("Watch party host session terminated successfully.");
-    }
-
     function connectToPartyRoom(roomId) {
-        if (roomUnsubscribe) roomUnsubscribe();
+        if(currentRoomId && currentRoomId !== roomId) {
+            return alert("Blocked: You cannot join multiple watch parties simultaneously.");
+        }
+
         currentRoomId = roomId;
 
-        document.getElementById("mediaControllerCard").style.display = "block";
+        // Visual Layout Changes
+        document.getElementById("lobbyExplorerView").style.display = "none";
+        document.getElementById("activeTheaterView").style.display = "block";
+        document.getElementById("cloudLibrarySection").style.display = "block";
+        document.getElementById("exitPartyBtn").style.style.display = "inline-block";
+        document.getElementById("hostSessionBtn").disabled = true;
+
         document.getElementById("syncStatusIndicator").className = "status-pill bg-danger text-white";
         document.getElementById("syncStatusIndicator").innerText = "● Live Shared Session Room";
 
         roomUnsubscribe = db.collection("rave_parties").doc(roomId).onSnapshot(doc => {
-            if (!doc.exists) return;
+            if (!doc.exists) {
+                handleForcedDisconnection();
+                return;
+            }
             const data = doc.data();
 
             document.getElementById("roomTitleHeader").innerText = `${data.hostName}'s Watch Space`;
@@ -704,6 +730,40 @@
                 player.pause();
             }
         });
+    }
+
+    function exitCurrentParty() {
+        if (roomUnsubscribe) roomUnsubscribe();
+        player.pause();
+        
+        currentRoomId = null;
+
+        // Reset App Interfaces to Lobby Explorer view Mode
+        document.getElementById("activeTheaterView").style.display = "none";
+        document.getElementById("cloudLibrarySection").style.display = "none";
+        document.getElementById("exitPartyBtn").style.display = "none";
+        document.getElementById("lobbyExplorerView").style.display = "block";
+        document.getElementById("hostSessionBtn").disabled = false;
+
+        document.getElementById("syncStatusIndicator").className = "status-pill bg-secondary text-white";
+        document.getElementById("syncStatusIndicator").innerText = "Standalone Offline Mode";
+        document.getElementById("roomTitleHeader").innerText = "Viewing Lobby";
+        document.getElementById("roomSubHeader").innerText = "Join or create a live sync room to get started.";
+        
+        renderPartiesDisplay(cachedPartiesList);
+    }
+
+    function handleForcedDisconnection() {
+        alert("The session room was dissolved or closed by the host.");
+        exitCurrentParty();
+    }
+
+    async function deletePartyRoom(roomId) {
+        if (!confirm("Are you sure you want to terminate and close this watch party session?")) return;
+        if (currentRoomId === roomId) {
+            exitCurrentParty();
+        }
+        await db.collection("rave_parties").doc(roomId).delete();
     }
 
     player.addEventListener("play", () => broadcastPlayerState(true));
@@ -741,6 +801,25 @@
             lastUpdated: Date.now()
         });
         document.getElementById("targetMediaUrl").value = "";
+    }
+
+    /* 30-Minute Inactivity Clean Routine Engine */
+    function startStaleRoomsCleanupRoutine() {
+        setInterval(async () => {
+            const halfHourInMs = 30 * 60 * 1000;
+            const staleThreshold = Date.now() - halfHourInMs;
+
+            const snapshot = await db.collection("rave_parties").get();
+            snapshot.forEach(async (doc) => {
+                const data = doc.data();
+                const lastActivity = data.lastUpdated || data.createdAt || 0;
+                
+                if (lastActivity < staleThreshold) {
+                    console.log(`Auto-deleting inactive room: ${doc.id}`);
+                    await db.collection("rave_parties").doc(doc.id).delete();
+                }
+            });
+        }, 60000); // Evaluates room lists every 60 seconds
     }
 </script>
 
