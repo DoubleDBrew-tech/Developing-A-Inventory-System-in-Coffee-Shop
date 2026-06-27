@@ -356,8 +356,9 @@
     const EMAILJS_VERIFY_TEMPLATE_ID = "template_a4n6baq";
     const EMAILJS_RECOVER_TEMPLATE_ID = "template_skd3uhp";
 
-    if (EMAILJS_PUBLIC_KEY !== "Swo8GBWhAAP4PEWdS") {
-        emailjs.init(EMAILJS_PUBLIC_KEY);
+    // Initialize directly
+    emailjs.init(EMAILJS_PUBLIC_KEY);
+
     }
 
     firebase.initializeApp({
@@ -445,14 +446,20 @@
 
                 // Automated Welcome Email Workflow Integration
                 if (EMAILJS_PUBLIC_KEY !== "YOUR_EMAILJS_PUBLIC_KEY") {
-                    try {
-                        await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_VERIFY_TEMPLATE_ID, {
-                            to_email: pendingRegistrationData.email,
-                            code: `Welcome to Rave Watch Hub, ${pendingRegistrationData.username}! Your registration is officially complete. Enjoy our special shared theater workspace.`
-                        });
-                    } catch (welcomeErr) {
-                        console.error("Welcome email delivery failed in background track thread:", welcomeErr);
-                    }
+                                try {
+                await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_VERIFY_TEMPLATE_ID, {
+                    to_email: email,
+                    code: currentGeneratedCode
+                });
+                alert("Verification code dispatched to your Gmail account successfully!");
+                toggleAuthViews('verify');
+            } catch (err) {
+                console.error(err);
+                // Extract and read the exact server response message
+                let errorDetails = err && err.text ? err.text : JSON.stringify(err);
+                alert("EmailJS API Error Alert:\n" + errorDetails + "\n\nFallback Bypass Code: " + currentGeneratedCode);
+                toggleAuthViews('verify');
+            }
                 }
 
                 alert("Account created successfully! Welcome email sent. You can log in now.");
