@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Our Special Space</title>
+    <title>Carleigh Watchparty</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -70,6 +70,13 @@
         .auth-toggle-link:hover {
             color: var(--dark-pink);
             text-decoration: underline;
+        }
+
+        .input-label-tag {
+            font-size: 0.8rem;
+            color: #a0aec0;
+            margin-bottom: 5px;
+            font-weight: 500;
         }
 
         /* --- Welcome Screen --- */
@@ -219,9 +226,11 @@
         <div id="loginFormBlock">
             <h3 class="auth-title mb-4 text-center">Welcome Back</h3>
             <div class="mb-3">
+                <div class="input-label-tag">Username</div>
                 <input type="text" id="loginUser" class="form-control bg-dark text-white border-secondary py-2" placeholder="Username">
             </div>
             <div class="mb-2">
+                <div class="input-label-tag">Password</div>
                 <input type="password" id="loginPass" class="form-control bg-dark text-white border-secondary py-2" placeholder="Password">
             </div>
             <div class="text-end mb-4">
@@ -234,15 +243,19 @@
         <div id="registerFormBlock" style="display: none;">
             <h3 class="auth-title mb-4 text-center">Create Account</h3>
             <div class="mb-3">
+                <div class="input-label-tag">Choose Username (Letters and numbers only, max 16 chars)</div>
                 <input type="text" id="regUser" class="form-control bg-dark text-white border-secondary py-2" placeholder="Choose Username">
             </div>
             <div class="mb-3">
+                <div class="input-label-tag">Your Gmail Address</div>
                 <input type="email" id="regEmail" class="form-control bg-dark text-white border-secondary py-2" placeholder="Your Gmail Address">
             </div>
             <div class="mb-3">
+                <div class="input-label-tag">Create Password</div>
                 <input type="password" id="regPass" class="form-control bg-dark text-white border-secondary py-2" placeholder="Create Password">
             </div>
             <div class="mb-4">
+                <div class="input-label-tag">Confirm Password</div>
                 <input type="password" id="regPassConf" class="form-control bg-dark text-white border-secondary py-2" placeholder="Confirm Password">
             </div>
             <button class="btn btn-danger w-100 py-2 fw-bold mb-3" onclick="handleAuthAction('sendVerification')">Send Verification Code</button>
@@ -265,6 +278,7 @@
             <h3 class="auth-title mb-3 text-center">Reset Password</h3>
             <p class="text-muted small text-center mb-4">Enter your username. Your password details will be sent directly to your registered Gmail.</p>
             <div class="mb-4">
+                <div class="input-label-tag">Your Username</div>
                 <input type="text" id="forgotUser" class="form-control bg-dark text-white border-secondary py-2" placeholder="Your Username">
             </div>
             <button class="btn btn-danger w-100 py-2 fw-bold mb-3" onclick="handleAuthAction('forgot')">Email My Password</button>
@@ -337,8 +351,6 @@
 <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
 
 <script>
-    // EmailJS Credentials Linking Hooks
-    // REPLACE THESE strings with your EmailJS dashboard keys to make emails functional!
     const EMAILJS_PUBLIC_KEY = "Swo8GBWhAAP4PEWdS";
     const EMAILJS_SERVICE_ID = "service_q33390t";
     const EMAILJS_VERIFY_TEMPLATE_ID = "template_a4n6baq";
@@ -348,7 +360,6 @@
         emailjs.init(EMAILJS_PUBLIC_KEY);
     }
 
-    // Initialize Firestore Backend Database
     firebase.initializeApp({
         apiKey: "AIzaSyA-nzm4JKM6QdwVxcVu6uWUeRy9n5hJZpU",
         authDomain: "inventory-system-67e2e.firebaseapp.com",
@@ -364,7 +375,6 @@
     let isInternalUpdate = false;
     let currentSessionUser = "User";
 
-    // Temporary storage holding payload data during registration confirmation stages
     let pendingRegistrationData = null;
     let currentGeneratedCode = null;
 
@@ -383,18 +393,28 @@
             const passConf = document.getElementById("regPassConf").value.trim();
 
             if(!user || !email || !pass || !passConf) return alert("Please fill out all available fields.");
+            
+            // Username Length Validation (Max 16 Characters)
+            if(user.length > 16) {
+                return alert("Username must not be longer than 16 characters.");
+            }
+
+            // Username Alphanumeric Regex Validation (No special characters, no spaces)
+            const alphanumericRegex = /^[a-zA-Z0-9]+$/;
+            if(!alphanumericRegex.test(user)) {
+                return alert("Username can only contain alphanumeric letters and numbers. No spaces or special characters allowed.");
+            }
+
             if(pass !== passConf) return alert("Passwords do not match! Please verify configuration entries.");
 
             const checkDoc = await db.collection("app_users").doc(user).get();
             if(checkDoc.exists) return alert("Username is already taken.");
 
-            // Generate random 6-digit verification code token
             currentGeneratedCode = Math.floor(100000 + Math.random() * 900000).toString();
-            
             pendingRegistrationData = { username: user, email: email, password: pass };
 
             if (EMAILJS_PUBLIC_KEY === "YOUR_EMAILJS_PUBLIC_KEY") {
-                alert(`[Developer Mode] EmailJS keys missing. Skipping actual email delivery. Your mock verification code is: ${currentGeneratedCode}`);
+                alert(`[Developer Mode] EmailJS keys missing. Your mock verification code is: ${currentGeneratedCode}`);
                 toggleAuthViews('verify');
                 return;
             }
@@ -422,7 +442,20 @@
                     password: pendingRegistrationData.password,
                     createdAt: Date.now()
                 });
-                alert("Account created successfully! You can log in now.");
+
+                // Automated Welcome Email Workflow Integration
+                if (EMAILJS_PUBLIC_KEY !== "YOUR_EMAILJS_PUBLIC_KEY") {
+                    try {
+                        await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_VERIFY_TEMPLATE_ID, {
+                            to_email: pendingRegistrationData.email,
+                            code: `Welcome to Rave Watch Hub, ${pendingRegistrationData.username}! Your registration is officially complete. Enjoy our special shared theater workspace.`
+                        });
+                    } catch (welcomeErr) {
+                        console.error("Welcome email delivery failed in background track thread:", welcomeErr);
+                    }
+                }
+
+                alert("Account created successfully! Welcome email sent. You can log in now.");
                 pendingRegistrationData = null;
                 currentGeneratedCode = null;
                 toggleAuthViews('login');
