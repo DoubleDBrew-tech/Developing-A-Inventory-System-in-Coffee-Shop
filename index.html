@@ -408,7 +408,7 @@
                 </video>
             </div>
 
-            <div class="card bg-dark border-secondary p-3" id="mediaControllerCard">
+            <div class="card bg-dark border-secondary p-3" id="mediaControllerCard" style="display: none;">
                 <label class="form-label small text-muted fw-bold">Update Active Room Media Target URL</label>
                 <div class="input-group">
                     <input type="text" id="targetMediaUrl" class="form-control bg-secondary text-white border-0" placeholder="Paste your direct video link or Google Drive URL stream link...">
@@ -451,6 +451,7 @@
     let roomUnsubscribe = null;
     let isInternalUpdate = false;
     let currentSessionUser = "User";
+    let isRoomHost = false; // Tracks if the local user is the room host
 
     let pendingRegistrationData = null;
     let currentGeneratedCode = null;
@@ -695,7 +696,7 @@
         document.getElementById("lobbyExplorerView").style.display = "none";
         document.getElementById("activeTheaterView").style.display = "block";
         document.getElementById("cloudLibrarySection").style.display = "block";
-        document.getElementById("exitPartyBtn").style.style.display = "inline-block";
+        document.getElementById("exitPartyBtn").style.display = "inline-block";
         document.getElementById("hostSessionBtn").disabled = true;
 
         document.getElementById("syncStatusIndicator").className = "status-pill bg-danger text-white";
@@ -708,6 +709,18 @@
             }
             const data = doc.data();
 
+            // Determine if local user is host
+            isRoomHost = (data.hostName === currentSessionUser);
+
+            // Toggle controller panel and video controls based on ownership status
+            if (isRoomHost) {
+                document.getElementById("mediaControllerCard").style.display = "block";
+                player.controls = true; // Hosts get explicit playback control UI
+            } else {
+                document.getElementById("mediaControllerCard").style.display = "none";
+                player.controls = false; // Guests have locked controls to prevent sync loop echoes
+            }
+
             document.getElementById("roomTitleHeader").innerText = `${data.hostName}'s Watch Space`;
             document.getElementById("roomSubHeader").innerText = `Syncing Target: ${data.mediaTitle}`;
 
@@ -717,11 +730,13 @@
                 player.load();
             }
 
+            // Sync playback positions if variation threshold breaks tolerance barrier (1.5s)
             if (Math.abs(player.currentTime - data.currentTime) > 1.5) {
                 isInternalUpdate = true;
                 player.currentTime = data.currentTime;
             }
 
+            // Enforce unified systemic playback target states
             if (data.playing && player.paused) {
                 isInternalUpdate = true;
                 player.play().catch(() => {});
@@ -737,6 +752,7 @@
         player.pause();
         
         currentRoomId = null;
+        isRoomHost = false;
 
         // Reset App Interfaces to Lobby Explorer view Mode
         document.getElementById("activeTheaterView").style.display = "none";
@@ -744,6 +760,7 @@
         document.getElementById("exitPartyBtn").style.display = "none";
         document.getElementById("lobbyExplorerView").style.display = "block";
         document.getElementById("hostSessionBtn").disabled = false;
+        player.controls = true; // Restore normal standalone offline mode configuration controls
 
         document.getElementById("syncStatusIndicator").className = "status-pill bg-secondary text-white";
         document.getElementById("syncStatusIndicator").innerText = "Standalone Offline Mode";
@@ -766,15 +783,24 @@
         await db.collection("rave_parties").doc(roomId).delete();
     }
 
-    player.addEventListener("play", () => broadcastPlayerState(true));
-    player.addEventListener("pause", () => broadcastPlayerState(false));
-    player.addEventListener("seeked", () => broadcastPlayerState(!player.paused));
+    // Capture Local Events and update database ONLY if local user is the Room Host
+    player.addEventListener("play", () => {
+        if (isRoomHost) broadcastPlayerState(true);
+    });
+    player.addEventListener("pause", () => {
+        if (isRoomHost) broadcastPlayerState(false);
+    });
+    player.addEventListener("seeked", () => {
+        if (isRoomHost) broadcastPlayerState(!player.paused);
+    });
 
     function broadcastPlayerState(isPlaying) {
+        // Prevent updates if not connected, or if event was fired programmatically via sync update logic loop
         if (!currentRoomId || isInternalUpdate) {
-            isInternalUpdate = false;
+            isInternalUpdate = false; 
             return;
         }
+        
         db.collection("rave_parties").doc(currentRoomId).update({
             currentTime: player.currentTime,
             playing: isPlaying,
@@ -783,7 +809,7 @@
     }
 
     function updateRoomMedia() {
-        if(!currentRoomId) return;
+        if(!currentRoomId || !isRoomHost) return;
         const rawUrl = document.getElementById("targetMediaUrl").value.trim();
         if (!rawUrl) return;
 
