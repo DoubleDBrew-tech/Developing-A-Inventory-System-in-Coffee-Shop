@@ -84,7 +84,7 @@
             box-shadow: 0 0 8px rgba(220, 53, 69, 0.5) !important;
         }
 
-        /* --- Welcome Screen --- */
+        /* --- New Welcome Screen Layout --- */
         #welcomeScreen {
             position: fixed;
             top: 0;
@@ -92,14 +92,68 @@
             width: 100vw;
             height: 100vh;
             z-index: 9999;
-            background: linear-gradient(rgba(0, 0, 0, 0.65), rgba(0, 0, 0, 0.75)), 
-                        url('https://images.unsplash.com/photo-1518199266791-5375a83190b7?auto=format&fit=crop&w=1920&q=80') center/cover no-repeat;
+            background: linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.7)), 
+                        url('https://images.unsplash.com/photo-1513885535751-8b9238bd345a?auto=format&fit=crop&w=1920&q=80') center/cover no-repeat;
             display: none;
             flex-direction: column;
             justify-content: center;
             align-items: center;
             text-align: center;
             transition: opacity 0.8s ease-in-out;
+        }
+
+        .embedded-header {
+            position: absolute;
+            top: 30px;
+            font-size: 1.5rem;
+            font-weight: 600;
+            letter-spacing: 2px;
+            color: rgba(255, 255, 255, 0.8);
+            border-bottom: 2px solid var(--primary-pink);
+            padding-bottom: 5px;
+        }
+
+        .welcome-title-text {
+            font-size: 4rem;
+            font-weight: 700;
+            color: #ffffff;
+            text-shadow: 0 4px 15px rgba(0,0,0,0.8);
+            margin-bottom: 2.5rem;
+        }
+
+        .btn-proceed {
+            background-color: var(--primary-pink);
+            color: white;
+            border: none;
+            padding: 14px 45px;
+            font-size: 1.3rem;
+            border-radius: 50px;
+            font-weight: 600;
+            letter-spacing: 1px;
+            box-shadow: 0 4px 20px rgba(255, 75, 114, 0.5);
+            transition: all 0.3s ease;
+        }
+
+        .btn-proceed:hover {
+            background-color: var(--dark-pink);
+            transform: scale(1.05);
+            color: white;
+        }
+
+        /* --- Admin Core Modal View Overlay --- */
+        #adminRevealBlock {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(10, 10, 14, 0.95);
+            z-index: 20000;
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
         }
 
         .animated-text {
@@ -110,28 +164,6 @@
             margin-bottom: 2rem;
             min-height: 7.5rem;
             white-space: pre-wrap;
-        }
-
-        .btn-enter {
-            background-color: var(--primary-pink);
-            color: white;
-            border: none;
-            padding: 12px 35px;
-            font-size: 1.2rem;
-            border-radius: 50px;
-            font-weight: 600;
-            letter-spacing: 1px;
-            box-shadow: 0 4px 15px rgba(255, 75, 114, 0.4);
-            opacity: 0;
-            transform: translateY(20px);
-            transition: all 0.5s ease;
-        }
-
-        .btn-enter.show { opacity: 1; transform: translateY(0); }
-        .btn-enter:hover {
-            background-color: var(--dark-pink);
-            color: white;
-            transform: scale(1.05);
         }
 
         /* --- Application Layout --- */
@@ -227,7 +259,6 @@
 
 <div id="authScreen">
     <div class="auth-card">
-        
         <div id="loginFormBlock">
             <h3 class="auth-title mb-4 text-center">Welcome Back</h3>
             <div class="mb-3">
@@ -303,14 +334,27 @@
     </div>
 </div>
 
+<!-- Updated Rollercoaster Screen Base Structure -->
 <div id="welcomeScreen">
+    <div class="embedded-header">CL WatchParty</div>
+    <div class="welcome-title-text">Welcome WatchPartygoers</div>
+    <button class="btn btn-proceed" onclick="enterApp()">Proceed to WatchParty</button>
+</div>
+
+<!-- Admin Code Display Screen Module Overlay -->
+<div id="adminRevealBlock">
     <div class="animated-text" id="revealText"></div>
-    <button class="btn btn-enter" id="enterBtn" onclick="enterApp()">Enter Our Space ❤️</button>
+    <button class="btn btn-sm btn-outline-light mt-3" onclick="closeAdminPanel()">Return to Theater</button>
 </div>
 
 <div id="app">
     <aside class="sidebar">
-        <div class="d-flex align-items-center justify-content-between mb-4">
+        <!-- Center-Top Relocated Admin Interactive Workspace Trigger -->
+        <div class="text-center mb-3 border-bottom border-secondary pb-3">
+            <button class="btn btn-sm btn-outline-danger w-100 fw-bold" onclick="promptAdminAccess()">🌹 ILabLeigh</button>
+        </div>
+
+        <div class="d-flex align-items-center justify-content-between mb-3">
             <div class="d-flex align-items-center gap-2">
                 <div class="rounded-circle bg-danger" style="width:12px; height:12px;"></div>
                 <h5 class="mb-0 fw-bold">Rave Watch Hub</h5>
@@ -324,9 +368,17 @@
             <span>Open Google Drive</span>
         </a>
         
+        <!-- Live Movie Selectors Configuration Block -->
         <div class="section-title">Watch Party Manager</div>
-        <div class="d-grid gap-2 mb-3">
-            <button class="btn btn-danger btn-sm py-2 fw-bold" onclick="createNewParty()">🎬 Host New Watch Session</button>
+        <div class="bg-dark p-2 rounded border border-secondary mb-3">
+            <label class="form-label small text-muted fw-bold mb-1">Select Session Movie Source</label>
+            <select id="selectedMovieOption" class="form-select form-select-sm bg-secondary text-white border-0 mb-2">
+                <option value="https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4|Big Buck Bunny (Sample)">Big Buck Bunny (Sample)</option>
+                <option value="https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4|Elephants Dream (Sample)">Elephants Dream (Sample)</option>
+                <option value="https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4|Sintel Animated (Sample)">Sintel Animated Short</option>
+                <option value="CUSTOM|Load Custom Content URL Inside Theater">Use Custom Video Link...</option>
+            </select>
+            <button class="btn btn-danger btn-sm w-100 fw-bold py-2" onclick="createNewParty()">🎬 Host Watch Session</button>
         </div>
 
         <div class="section-title">Available Active Host Rooms</div>
@@ -390,7 +442,6 @@
     let pendingRegistrationData = null;
     let currentGeneratedCode = null;
 
-    // Strict UI Rule Validators
     function cleanUsernameInput(element) {
         element.value = element.value.replace(/[^a-zA-Z0-9]/g, '');
     }
@@ -428,12 +479,7 @@
             if(!user || !email || !pass || !passConf) return alert("Please fill out all fields.");
             if(user.length > 16) return alert("Username can't exceed 16 characters.");
             if(!/^[a-zA-Z0-9]+$/.test(user)) return alert("Username cannot contain spaces or special characters.");
-
-            if(!email.toLowerCase().endsWith("@gmail.com")) {
-                document.getElementById("regEmail").classList.add("is-invalid-gmail");
-                return alert("You must register with a valid email ending in @gmail.com");
-            }
-
+            if(!email.toLowerCase().endsWith("@gmail.com")) return alert("You must register with a valid email ending in @gmail.com");
             if(pass !== passConf) return alert("Passwords do not match!");
 
             const checkDoc = await db.collection("app_users").doc(user).get();
@@ -442,18 +488,14 @@
             currentGeneratedCode = Math.floor(100000 + Math.random() * 900000).toString();
             pendingRegistrationData = { username: user, email: email, password: pass };
 
-            const templateParams = {
-                to_email: email,
-                code: currentGeneratedCode
-            };
+            const templateParams = { to_email: email, code: currentGeneratedCode };
 
             emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_VERIFY_TEMPLATE_ID, templateParams)
                 .then(function() {
                     alert("Verification code dispatched to your Gmail account!");
                     toggleAuthViews('verify');
                 }, function(error) {
-                    console.error("API error response block:", error);
-                    alert("EmailJS Failed. Status code: " + (error.status || 'unknown') + ". Debug Bypass Code: " + currentGeneratedCode);
+                    alert("EmailJS Request Error Encountered. Status code: " + (error.status || 'unknown'));
                     toggleAuthViews('verify');
                 });
         }
@@ -467,8 +509,7 @@
                     password: pendingRegistrationData.password,
                     createdAt: Date.now()
                 });
-
-                alert("Account created successfully! You can log in now.");
+                alert("Account created successfully!");
                 pendingRegistrationData = null;
                 currentGeneratedCode = null;
                 toggleAuthViews('login');
@@ -498,30 +539,41 @@
             if(!userDoc.exists) return alert("No local records match that user profile.");
 
             const userData = userDoc.data();
-            const recoverParams = {
-                to_email: userData.email,
-                password: userData.password
-            };
+            const recoverParams = { to_email: userData.email, password: userData.password };
 
             emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_RECOVER_TEMPLATE_ID, recoverParams)
                 .then(function() {
-                    alert(`Your password has been emailed to ${userData.email}.`);
+                    alert(`Your password has been emailed.`);
                     toggleAuthViews('login');
                 }, function(error) {
-                    alert("Error sending recovery email. Your password is: " + userData.password);
+                    alert("Error sending recovery email.");
                 });
         }
     }
 
-    /* --- Animation Reveal Sequence Framework --- */
     function launchWelcomeSequence(username) {
         currentSessionUser = username;
         document.getElementById("authScreen").style.opacity = "0";
         setTimeout(() => {
             document.getElementById("authScreen").style.display = "none";
             document.getElementById("welcomeScreen").style.display = "flex";
-            setTimeout(typeLetter, 400);
         }, 600);
+    }
+
+    /* --- Protected Admin Access Controllers --- */
+    function promptAdminAccess() {
+        const passwordCheck = prompt("Enter Admin Access Token Password to View Secret Frame:");
+        if (passwordCheck === null) return;
+        
+        // Replace with your real admin password
+        if (passwordCheck === "leigh123" || passwordCheck === "admin") {
+            document.getElementById("adminRevealBlock").style.display = "flex";
+            document.getElementById("revealText").innerHTML = "";
+            index = 0;
+            typeLetter();
+        } else {
+            alert("Unauthorized credentials context token provided.");
+        }
     }
 
     function typeLetter() {
@@ -529,9 +581,12 @@
             document.getElementById("revealText").innerHTML += targetPhrase.charAt(index);
             index++;
             setTimeout(typeLetter, 110);
-        } else {
-            document.getElementById("enterBtn").classList.add("show");
         }
+    }
+
+    function closeAdminPanel() {
+        document.getElementById("adminRevealBlock").style.display = "none";
+        document.getElementById("revealText").innerHTML = "";
     }
 
     function enterApp() {
@@ -561,10 +616,15 @@
               snapshot.forEach(doc => {
                   const party = doc.data();
                   const isCurrent = (doc.id === currentRoomId);
+                  const isHost = (party.hostName === currentSessionUser);
+                  
                   listContainer.innerHTML += `
                       <div class="party-card ${isCurrent ? 'active' : ''}">
-                          <div class="fw-bold text-truncate text-white">🎬 ${party.hostName}'s Room</div>
-                          <div class="small text-muted mb-2" style="font-size:11px;">Track: ${party.mediaTitle || 'Sample Video'}</div>
+                          <div class="d-flex justify-content-between align-items-start">
+                              <div class="fw-bold text-truncate text-white" style="max-width: 200px;">🎬 ${party.hostName}'s Room</div>
+                              ${isHost ? `<button class="btn btn-sm btn-dark text-danger border-0 p-0 px-1" title="Delete Party Room" onclick="deletePartyRoom('${doc.id}')">❌</button>` : ''}
+                          </div>
+                          <div class="small text-muted mb-2 text-truncate" style="font-size:11px;">Track: ${party.mediaTitle || 'Sample Video'}</div>
                           <button class="btn btn-sm w-100 ${isCurrent ? 'btn-outline-danger disabled' : 'btn-danger'}" 
                                   onclick="connectToPartyRoom('${doc.id}')">
                               ${isCurrent ? 'Connected' : 'Join Party'}
@@ -576,17 +636,38 @@
     }
 
     async function createNewParty() {
+        const dropdown = document.getElementById("selectedMovieOption");
+        const [movieUrl, movieTitle] = dropdown.value.split('|');
+
         const newPartyRef = db.collection("rave_parties").doc();
         await newPartyRef.set({
             hostName: currentSessionUser,
-            mediaUrl: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4",
-            mediaTitle: "Standard Synchronization Sample",
+            mediaUrl: movieUrl === "CUSTOM" ? "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4" : movieUrl,
+            mediaTitle: movieTitle,
             currentTime: 0,
             playing: false,
             createdAt: Date.now(),
             lastUpdated: Date.now()
         });
         connectToPartyRoom(newPartyRef.id);
+    }
+
+    async function deletePartyRoom(roomId) {
+        if (!confirm("Are you sure you want to terminate and close this watch party session?")) return;
+        
+        if (currentRoomId === roomId) {
+            if (roomUnsubscribe) roomUnsubscribe();
+            currentRoomId = null;
+            document.getElementById("mediaControllerCard").style.display = "none";
+            document.getElementById("syncStatusIndicator").className = "status-pill bg-secondary text-white";
+            document.getElementById("syncStatusIndicator").innerText = "Standalone Offline Mode";
+            document.getElementById("roomTitleHeader").innerText = "Viewing Lobby";
+            document.getElementById("roomSubHeader").innerText = "Join or create a live sync room to get started.";
+            player.pause();
+        }
+        
+        await db.collection("rave_parties").doc(roomId).delete();
+        alert("Watch party host session terminated successfully.");
     }
 
     function connectToPartyRoom(roomId) {
