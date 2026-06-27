@@ -172,7 +172,11 @@
             grid-template-columns: 350px 1fr;
             height: 100vh;
             opacity: 0;
-            transition: opacity 0.5s ease;
+            transition: opacity 0.5s ease, grid-template-columns 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        #app.sidebar-hidden {
+            grid-template-columns: 0px 1fr;
         }
 
         .sidebar {
@@ -182,6 +186,14 @@
             flex-direction: column;
             padding: 20px;
             overflow-y: auto;
+            transition: padding 0.3s ease, opacity 0.2s ease;
+        }
+
+        #app.sidebar-hidden .sidebar {
+            padding: 20px 0;
+            overflow: hidden;
+            opacity: 0;
+            pointer-events: none;
         }
 
         .section-title {
@@ -233,6 +245,21 @@
             flex-direction: column;
             padding: 24px;
             overflow-y: auto;
+            position: relative;
+        }
+
+        /* Responsive Layout Engine splitting screen between Player Area and Live Chatbox */
+        .theater-split-container {
+            display: grid;
+            grid-template-columns: 1fr 340px;
+            gap: 20px;
+            align-items: start;
+        }
+
+        @media (max-width: 1100px) {
+            .theater-split-container {
+                grid-template-columns: 1fr;
+            }
         }
 
         .video-container {
@@ -245,7 +272,80 @@
             width: 100%;
         }
 
-        video { width: 100%; height: 100%; object-fit: contain; }
+        video, iframe.yt-player-frame { width: 100%; height: 100%; border: 0; object-fit: contain; }
+
+        /* Embedded Sidebar Toggle Pin System */
+        .toggle-sidebar-trigger {
+            position: absolute;
+            left: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            z-index: 1050;
+            background-color: var(--card-dark);
+            border: 1px solid #333342;
+            color: var(--primary-pink);
+            border-radius: 50%;
+            width: 36px;
+            height: 36px;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.4);
+            font-weight: bold;
+            transition: all 0.2s;
+        }
+        .toggle-sidebar-trigger:hover {
+            background-color: var(--primary-pink);
+            color: #fff;
+        }
+
+        /* Live Chatbox Node Module Designs */
+        .chatbox-card-wrap {
+            background-color: #1a1a22;
+            border: 1px solid #2d2d37;
+            border-radius: 12px;
+            display: flex;
+            flex-direction: column;
+            height: 480px;
+        }
+        .chat-header-title {
+            padding: 12px 15px;
+            border-bottom: 1px solid #2d2d37;
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: #e5e7eb;
+        }
+        .chat-scroller-node {
+            flex: 1;
+            padding: 15px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .chat-bubble-row {
+            font-size: 0.85rem;
+            line-height: 1.4;
+            word-break: break-word;
+        }
+        .chat-author-tag {
+            font-weight: 600;
+            color: var(--primary-pink);
+            margin-right: 5px;
+        }
+        .chat-time-tag {
+            font-size: 0.7rem;
+            color: #6b7280;
+            margin-left: 5px;
+        }
+        .chat-input-bar-group {
+            padding: 10px;
+            border-top: 1px solid #2d2d37;
+            background-color: #15151b;
+            border-bottom-left-radius: 12px;
+            border-bottom-right-radius: 12px;
+        }
 
         .status-pill {
             font-size: 0.75rem;
@@ -368,7 +468,16 @@
         </div>
 
         <div id="cloudLibrarySection" style="display: none;">
-            <div class="section-title">Your Cloud Library</div>
+            <!-- Added YouTube integration card positioned directly over Google Drive element -->
+            <div class="section-title">Streaming Sources</div>
+            <div class="bg-dark p-2 rounded border border-secondary mb-2" id="youtubeControlCard">
+                <label class="form-label small text-muted fw-bold mb-1">Load Shared YouTube URL</label>
+                <div class="input-group input-group-sm">
+                    <input type="text" id="youtubeTargetUrl" class="form-control bg-secondary text-white border-0" placeholder="Paste YouTube link...">
+                    <button class="btn btn-danger btn-sm" onclick="triggerYouTubeSyncLoad()">Load</button>
+                </div>
+            </div>
+
             <a href="https://drive.google.com/" target="_blank" class="drive-btn mb-3">
                 <img src="https://upload.wikimedia.org/wikipedia/commons/1/12/Google_Drive_icon_%282020%29.svg" alt="Drive" style="width:20px;">
                 <span>Open Google Drive</span>
@@ -381,18 +490,15 @@
                 <input type="text" id="searchPartyInput" class="form-control form-control-sm bg-secondary text-white border-0" placeholder="Search watch party name..." oninput="filterPartiesFromSearch()">
             </div>
             
-            <label class="form-label small text-muted fw-bold mb-1">Create a Hostparty</label>
-            <select id="selectedMovieOption" class="form-select form-select-sm bg-secondary text-white border-0 mb-2">
-                <option value="https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4|Big Buck Bunny (Sample)">Big Buck Bunny (Sample)</option>
-                <option value="https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4|Elephants Dream (Sample)">Elephants Dream (Sample)</option>
-                <option value="https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4|Sintel Animated (Sample)">Sintel Animated Short</option>
-                <option value="CUSTOM|Load Custom Content URL Inside Theater">Use Custom Video Link...</option>
-            </select>
+            <!-- Removed sample entries completely. Preserved layout architecture structural flow. -->
             <button id="hostSessionBtn" class="btn btn-danger btn-sm w-100 fw-bold py-2" onclick="createNewParty()">🎬 Host Watch Session</button>
         </div>
     </aside>
 
     <main class="main-theater">
+        <!-- Interactive Structural Arrow Trigger to flip side panel layout state -->
+        <div id="toggleSidebarBtn" class="toggle-sidebar-trigger" onclick="toggleSidebarMenuState()">◀</div>
+
         <header class="d-flex justify-content-between align-items-center mb-3">
             <div>
                 <h4 class="mb-1" id="roomTitleHeader">Viewing Lobby</h4>
@@ -402,25 +508,41 @@
         </header>
 
         <div id="activeTheaterView" style="display: none;">
-            <div class="video-container mb-3">
-                <video id="sharedPlayer" controls playsinline>
-                    <source id="videoSource" src="https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4" type="video/mp4">
-                </video>
-            </div>
+            <div class="theater-split-container">
+                <!-- Left Main Block: Video Player Nodes -->
+                <div>
+                    <div class="video-container mb-3" id="playerParentFrameContainer">
+                        <video id="sharedPlayer" controls playsinline>
+                            <source id="videoSource" src="https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4" type="video/mp4">
+                        </video>
+                    </div>
 
-            <div class="card bg-dark border-secondary p-3" id="mediaControllerCard" style="display: none;">
-                <label class="form-label small text-muted fw-bold">Update Active Room Media Target URL</label>
-                <div class="input-group">
-                    <input type="text" id="targetMediaUrl" class="form-control bg-secondary text-white border-0" placeholder="Paste your direct video link or Google Drive URL stream link...">
-                    <button class="btn btn-danger" onclick="updateRoomMedia()">Load Target</button>
+                    <div class="card bg-dark border-secondary p-3" id="mediaControllerCard" style="display: none;">
+                        <label class="form-label small text-muted fw-bold">Update Active Room Media Target URL</label>
+                        <div class="input-group">
+                            <input type="text" id="targetMediaUrl" class="form-control bg-secondary text-white border-0" placeholder="Paste your direct video link or Google Drive URL stream link...">
+                            <button class="btn btn-danger" onclick="updateRoomMedia()">Load Target</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right Complementary Block: Realtime Synchronized Live Chatbox Container -->
+                <div class="chatbox-card-wrap">
+                    <div class="chat-header-title">💬 Live Room Chat</div>
+                    <div id="chatScroller" class="chat-scroller-node"></div>
+                    <div class="chat-input-bar-group">
+                        <div class="input-group input-group-sm">
+                            <input type="text" id="chatMessageInput" class="form-control bg-secondary text-white border-0" placeholder="Type a message..." onkeydown="if(event.key==='Enter') sendChatMessage()">
+                            <button class="btn btn-danger" onclick="sendChatMessage()">Send</button>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
 
         <div id="lobbyExplorerView" class="w-100">
             <h5 class="border-bottom border-secondary pb-2 mb-3 text-muted">Active Watch Parties Online</h5>
-            <div id="activePartiesGrid" class="lobby-explorer-grid">
-                </div>
+            <div id="activePartiesGrid" class="lobby-explorer-grid"></div>
         </div>
     </main>
 </div>
@@ -449,13 +571,41 @@
     let index = 0;
     let currentRoomId = null;
     let roomUnsubscribe = null;
+    let chatUnsubscribe = null;
     let isInternalUpdate = false;
     let currentSessionUser = "User";
-    let isRoomHost = false; // Tracks if the local user is the room host
+    let isRoomHost = false; 
 
     let pendingRegistrationData = null;
     let currentGeneratedCode = null;
     let cachedPartiesList = [];
+
+    // Run verification setup check routine upon initialization
+    window.addEventListener("DOMContentLoaded", () => {
+        evaluateStoredSessionPersistenceState();
+    });
+
+    function evaluateStoredSessionPersistenceState() {
+        const savedUser = localStorage.getItem("cl_active_user");
+        const savedRoom = localStorage.getItem("cl_active_room_id");
+        const appState = localStorage.getItem("cl_app_state");
+
+        if (savedUser) {
+            currentSessionUser = savedUser;
+            // Bypass login panels and route straight into current system context
+            document.getElementById("authScreen").style.display = "none";
+            document.getElementById("welcomeScreen").style.display = "none";
+            document.getElementById("app").style.display = "grid";
+            document.getElementById("app").style.opacity = "1";
+            
+            listenForGlobalParties();
+            startStaleRoomsCleanupRoutine();
+
+            if (appState === "THEATER" && savedRoom) {
+                connectToPartyRoom(savedRoom);
+            }
+        }
+    }
 
     function cleanUsernameInput(element) {
         element.value = element.value.replace(/[^a-zA-Z0-9]/g, '');
@@ -568,6 +718,7 @@
 
     function launchWelcomeSequence(username) {
         currentSessionUser = username;
+        localStorage.setItem("cl_active_user", username);
         document.getElementById("authScreen").style.opacity = "0";
         setTimeout(() => {
             document.getElementById("authScreen").style.display = "none";
@@ -608,9 +759,24 @@
             document.getElementById("welcomeScreen").style.display = "none";
             document.getElementById("app").style.display = "grid";
             setTimeout(() => { document.getElementById("app").style.opacity = "1"; }, 50);
+            localStorage.setItem("cl_app_state", "LOBBY");
             listenForGlobalParties();
             startStaleRoomsCleanupRoutine();
         }, 800);
+    }
+
+    /* Sidebar Layout Toggle System */
+    function toggleSidebarMenuState() {
+        const appContainer = document.getElementById("app");
+        const indicatorArrow = document.getElementById("toggleSidebarBtn");
+        
+        if (appContainer.classList.contains("sidebar-hidden")) {
+            appContainer.classList.remove("sidebar-hidden");
+            indicatorArrow.innerText = "◀";
+        } else {
+            appContainer.classList.add("sidebar-hidden");
+            indicatorArrow.innerText = "▶";
+        }
     }
 
     /* Realtime Listener Sync Pipeline */
@@ -646,7 +812,7 @@
                         <div class="fw-bold text-truncate text-white fs-5">🎬 ${party.hostName}'s Room</div>
                         ${isHost ? `<button class="btn btn-sm btn-dark text-danger border-0 p-0 px-2" title="Delete Party Room" onclick="deletePartyRoom('${party.id}')">❌ Delete</button>` : ''}
                     </div>
-                    <div class="small text-muted mb-3 text-truncate">Active Track: <b>${party.mediaTitle || 'Sample Video'}</b></div>
+                    <div class="small text-muted mb-3 text-truncate">Active Track: <b>${party.mediaTitle || 'Video Stream'}</b></div>
                     <button class="btn btn-sm w-100 ${isCurrent ? 'btn-outline-danger disabled' : 'btn-danger'}" 
                             onclick="connectToPartyRoom('${party.id}')" ${currentRoomId && !isCurrent ? 'disabled' : ''}>
                         ${isCurrent ? 'Currently Connected' : currentRoomId ? 'Leave Current Room First' : 'Join Watch Party'}
@@ -669,14 +835,11 @@
     async function createNewParty() {
         if(currentRoomId) return alert("You are already inside an active session. Please exit your current party first!");
 
-        const dropdown = document.getElementById("selectedMovieOption");
-        const [movieUrl, movieTitle] = dropdown.value.split('|');
-
         const newPartyRef = db.collection("rave_parties").doc();
         await newPartyRef.set({
             hostName: currentSessionUser,
-            mediaUrl: movieUrl === "CUSTOM" ? "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4" : movieUrl,
-            mediaTitle: movieTitle,
+            mediaUrl: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4",
+            mediaTitle: "Default Video Stream Room",
             currentTime: 0,
             playing: false,
             createdAt: Date.now(),
@@ -691,16 +854,22 @@
         }
 
         currentRoomId = roomId;
+        localStorage.setItem("cl_active_room_id", roomId);
+        localStorage.setItem("cl_app_state", "THEATER");
 
-        // Visual Layout Changes
+        // UI View Layout Modifications
         document.getElementById("lobbyExplorerView").style.display = "none";
         document.getElementById("activeTheaterView").style.display = "block";
         document.getElementById("cloudLibrarySection").style.display = "block";
         document.getElementById("exitPartyBtn").style.display = "inline-block";
         document.getElementById("hostSessionBtn").disabled = true;
+        document.getElementById("toggleSidebarBtn").style.display = "flex"; 
 
         document.getElementById("syncStatusIndicator").className = "status-pill bg-danger text-white";
         document.getElementById("syncStatusIndicator").innerText = "● Live Shared Session Room";
+
+        // Connect Realtime Chat Engine Listener
+        initializeChatroomChannel(roomId);
 
         roomUnsubscribe = db.collection("rave_parties").doc(roomId).onSnapshot(doc => {
             if (!doc.exists) {
@@ -708,51 +877,159 @@
                 return;
             }
             const data = doc.data();
-
-            // Determine if local user is host
             isRoomHost = (data.hostName === currentSessionUser);
 
-            // Toggle controller panel and video controls based on ownership status
             if (isRoomHost) {
                 document.getElementById("mediaControllerCard").style.display = "block";
-                player.controls = true; // Hosts get explicit playback control UI
+                if(document.getElementById("sharedPlayer")) player.controls = true;
             } else {
                 document.getElementById("mediaControllerCard").style.display = "none";
-                player.controls = false; // Guests have locked controls to prevent sync loop echoes
+                if(document.getElementById("sharedPlayer")) player.controls = false;
             }
 
             document.getElementById("roomTitleHeader").innerText = `${data.hostName}'s Watch Space`;
             document.getElementById("roomSubHeader").innerText = `Syncing Target: ${data.mediaTitle}`;
 
-            if (document.getElementById("videoSource").src !== data.mediaUrl) {
-                isInternalUpdate = true;
-                document.getElementById("videoSource").src = data.mediaUrl;
-                player.load();
-            }
+            // Evaluate if running a direct asset link or an embedded iframe link (YouTube)
+            if (data.mediaUrl.includes("youtube.com/embed/")) {
+                renderYouTubeIframePlayer(data.mediaUrl);
+            } else {
+                restoreNativeVideoPlayerLayout();
+                if (document.getElementById("videoSource").src !== data.mediaUrl) {
+                    isInternalUpdate = true;
+                    document.getElementById("videoSource").src = data.mediaUrl;
+                    player.load();
+                }
 
-            // Sync playback positions if variation threshold breaks tolerance barrier (1.5s)
-            if (Math.abs(player.currentTime - data.currentTime) > 1.5) {
-                isInternalUpdate = true;
-                player.currentTime = data.currentTime;
-            }
+                if (Math.abs(player.currentTime - data.currentTime) > 1.5) {
+                    isInternalUpdate = true;
+                    player.currentTime = data.currentTime;
+                }
 
-            // Enforce unified systemic playback target states
-            if (data.playing && player.paused) {
-                isInternalUpdate = true;
-                player.play().catch(() => {});
-            } else if (!data.playing && !player.paused) {
-                isInternalUpdate = true;
-                player.pause();
+                if (data.playing && player.paused) {
+                    isInternalUpdate = true;
+                    player.play().catch(() => {});
+                } else if (!data.playing && !player.paused) {
+                    isInternalUpdate = true;
+                    player.pause();
+                }
             }
+        });
+    }
+
+    /* Embedded YouTube Player Iframe Transformer Module */
+    function renderYouTubeIframePlayer(embedUrl) {
+        const container = document.getElementById("playerParentFrameContainer");
+        // Verify if the iframe is already loaded to avoid cycling refreshes
+        const existingIframe = container.querySelector("iframe");
+        if (existingIframe && existingIframe.src === embedUrl) return;
+
+        container.innerHTML = `<iframe class="yt-player-frame" src="${embedUrl}" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>`;
+    }
+
+    function restoreNativeVideoPlayerLayout() {
+        const container = document.getElementById("playerParentFrameContainer");
+        if (container.querySelector("video")) return; // Video node is present
+
+        container.innerHTML = `
+            <video id="sharedPlayer" controls playsinline>
+                <source id="videoSource" src="" type="video/mp4">
+            </video>
+        `;
+        
+        // Re-bind listeners to newly mounted player instance node
+        const newPlayer = document.getElementById("sharedPlayer");
+        newPlayer.addEventListener("play", () => { if (isRoomHost) broadcastPlayerState(true); });
+        newPlayer.addEventListener("pause", () => { if (isRoomHost) broadcastPlayerState(false); });
+        newPlayer.addEventListener("seeked", () => { if (isRoomHost) broadcastPlayerState(!newPlayer.paused); });
+        
+        // Refresh context pointer referencing active DOM instance
+        window.player = newPlayer;
+    }
+
+    function triggerYouTubeSyncLoad() {
+        if (!currentRoomId || !isRoomHost) return;
+        const rawUrl = document.getElementById("youtubeTargetUrl").value.trim();
+        if (!rawUrl) return;
+
+        let videoId = "";
+        if (rawUrl.includes("v=")) {
+            videoId = rawUrl.split("v=")[1].split("&")[0];
+        } else if (rawUrl.includes("youtu.be/")) {
+            videoId = rawUrl.split("youtu.be/")[1].split("?")[0];
+        } else if (rawUrl.includes("embed/")) {
+            videoId = rawUrl.split("embed/")[1].split("?")[0];
+        }
+
+        if (!videoId) return alert("Could not extract a valid YouTube video ID from link.");
+
+        const embedLink = `https://www.youtube.com/embed/${videoId}?autoplay=1&enablejsapi=1`;
+
+        db.collection("rave_parties").doc(currentRoomId).update({
+            mediaUrl: embedLink,
+            mediaTitle: "YouTube Shared Video Stream",
+            currentTime: 0,
+            playing: true,
+            lastUpdated: Date.now()
+        });
+        document.getElementById("youtubeTargetUrl").value = "";
+    }
+
+    /* Live Chatbox Sync Data Pipe Module */
+    function initializeChatroomChannel(roomId) {
+        if(chatUnsubscribe) chatUnsubscribe();
+        const container = document.getElementById("chatScroller");
+        container.innerHTML = "";
+
+        chatUnsubscribe = db.collection("rave_parties")
+            .doc(roomId)
+            .collection("chat_logs")
+            .orderBy("timestamp", "asc")
+            .limitToLast(40)
+            .onSnapshot(snapshot => {
+                snapshot.docChanges().forEach(change => {
+                    if (change.type === "added") {
+                        const msg = change.doc.data();
+                        const timeString = new Date(msg.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                        
+                        const row = document.createElement("div");
+                        row.className = "chat-bubble-row";
+                        row.innerHTML = `<span class="chat-author-tag">${msg.author}:</span><span class="text-white-50">${msg.text}</span><span class="chat-time-tag">${timeString}</span>`;
+                        
+                        container.appendChild(row);
+                    }
+                });
+                container.scrollTop = container.scrollHeight;
+            });
+    }
+
+    async function sendChatMessage() {
+        const input = document.getElementById("chatMessageInput");
+        const text = input.value.trim();
+        if (!text || !currentRoomId) return;
+
+        input.value = "";
+        await db.collection("rave_parties").doc(currentRoomId).collection("chat_logs").add({
+            author: currentSessionUser,
+            text: text,
+            timestamp: Date.now()
         });
     }
 
     function exitCurrentParty() {
         if (roomUnsubscribe) roomUnsubscribe();
+        if (chatUnsubscribe) chatUnsubscribe();
+        
+        const appContainer = document.getElementById("app");
+        appContainer.classList.remove("sidebar-hidden"); // Restore side menu layer if hidden
+
+        restoreNativeVideoPlayerLayout();
         player.pause();
         
         currentRoomId = null;
         isRoomHost = false;
+        localStorage.removeItem("cl_active_room_id");
+        localStorage.setItem("cl_app_state", "LOBBY");
 
         // Reset App Interfaces to Lobby Explorer view Mode
         document.getElementById("activeTheaterView").style.display = "none";
@@ -760,7 +1037,8 @@
         document.getElementById("exitPartyBtn").style.display = "none";
         document.getElementById("lobbyExplorerView").style.display = "block";
         document.getElementById("hostSessionBtn").disabled = false;
-        player.controls = true; // Restore normal standalone offline mode configuration controls
+        document.getElementById("toggleSidebarBtn").style.display = "none";
+        player.controls = true; 
 
         document.getElementById("syncStatusIndicator").className = "status-pill bg-secondary text-white";
         document.getElementById("syncStatusIndicator").innerText = "Standalone Offline Mode";
@@ -784,18 +1062,11 @@
     }
 
     // Capture Local Events and update database ONLY if local user is the Room Host
-    player.addEventListener("play", () => {
-        if (isRoomHost) broadcastPlayerState(true);
-    });
-    player.addEventListener("pause", () => {
-        if (isRoomHost) broadcastPlayerState(false);
-    });
-    player.addEventListener("seeked", () => {
-        if (isRoomHost) broadcastPlayerState(!player.paused);
-    });
+    player.addEventListener("play", () => { if (isRoomHost) broadcastPlayerState(true); });
+    player.addEventListener("pause", () => { if (isRoomHost) broadcastPlayerState(false); });
+    player.addEventListener("seeked", () => { if (isRoomHost) broadcastPlayerState(!player.paused); });
 
     function broadcastPlayerState(isPlaying) {
-        // Prevent updates if not connected, or if event was fired programmatically via sync update logic loop
         if (!currentRoomId || isInternalUpdate) {
             isInternalUpdate = false; 
             return;
@@ -845,7 +1116,7 @@
                     await db.collection("rave_parties").doc(doc.id).delete();
                 }
             });
-        }, 60000); // Evaluates room lists every 60 seconds
+        }, 60000); 
     }
 </script>
 
