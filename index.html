@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <title>Our Special Space</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
     
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Caveat:wght=700&family=Poppins:wght=300;400;600&display=swap" rel="stylesheet">
@@ -274,6 +274,18 @@
 
         video, iframe.yt-player-frame { width: 100%; height: 100%; border: 0; object-fit: contain; }
 
+        /* Block interaction overlay shield for guests to prevent native breaks on mobile */
+        .guest-lock-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 10;
+            background: rgba(0,0,0,0);
+            display: none;
+        }
+
         /* Embedded Sidebar Toggle Pin System */
         .toggle-sidebar-trigger {
             position: absolute;
@@ -468,7 +480,6 @@
         </div>
 
         <div id="cloudLibrarySection" style="display: none;">
-            <!-- Added YouTube integration card positioned directly over Google Drive element -->
             <div class="section-title">Streaming Sources</div>
             <div class="bg-dark p-2 rounded border border-secondary mb-2" id="youtubeControlCard">
                 <label class="form-label small text-muted fw-bold mb-1">Load Shared YouTube URL</label>
@@ -489,14 +500,11 @@
             <div class="mb-2">
                 <input type="text" id="searchPartyInput" class="form-control form-control-sm bg-secondary text-white border-0" placeholder="Search watch party name..." oninput="filterPartiesFromSearch()">
             </div>
-            
-            <!-- Removed sample entries completely. Preserved layout architecture structural flow. -->
             <button id="hostSessionBtn" class="btn btn-danger btn-sm w-100 fw-bold py-2" onclick="createNewParty()">🎬 Host Watch Session</button>
         </div>
     </aside>
 
     <main class="main-theater">
-        <!-- Interactive Structural Arrow Trigger to flip side panel layout state -->
         <div id="toggleSidebarBtn" class="toggle-sidebar-trigger" onclick="toggleSidebarMenuState()">◀</div>
 
         <header class="d-flex justify-content-between align-items-center mb-3">
@@ -509,10 +517,10 @@
 
         <div id="activeTheaterView" style="display: none;">
             <div class="theater-split-container">
-                <!-- Left Main Block: Video Player Nodes -->
                 <div>
                     <div class="video-container mb-3" id="playerParentFrameContainer">
-                        <video id="sharedPlayer" controls playsinline>
+                        <div id="guestLockOverlay" class="guest-lock-overlay"></div>
+                        <video id="sharedPlayer" controls playsinline webkit-playsinline disablePictureInPicture>
                             <source id="videoSource" src="https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4" type="video/mp4">
                         </video>
                     </div>
@@ -526,7 +534,6 @@
                     </div>
                 </div>
 
-                <!-- Right Complementary Block: Realtime Synchronized Live Chatbox Container -->
                 <div class="chatbox-card-wrap">
                     <div class="chat-header-title">💬 Live Room Chat</div>
                     <div id="chatScroller" class="chat-scroller-node"></div>
@@ -565,7 +572,7 @@
         projectId: "inventory-system-67e2e"
     });
     const db = firebase.firestore();
-    const player = document.getElementById("sharedPlayer");
+    let player = document.getElementById("sharedPlayer");
 
     const targetPhrase = "I Love You Leighhhhh";
     let index = 0;
@@ -575,12 +582,12 @@
     let isInternalUpdate = false;
     let currentSessionUser = "User";
     let isRoomHost = false; 
+    let lastKnownHostState = { playing: false, currentTime: 0 };
 
     let pendingRegistrationData = null;
     let currentGeneratedCode = null;
     let cachedPartiesList = [];
 
-    // Run verification setup check routine upon initialization
     window.addEventListener("DOMContentLoaded", () => {
         evaluateStoredSessionPersistenceState();
     });
@@ -592,7 +599,6 @@
 
         if (savedUser) {
             currentSessionUser = savedUser;
-            // Bypass login panels and route straight into current system context
             document.getElementById("authScreen").style.display = "none";
             document.getElementById("welcomeScreen").style.display = "none";
             document.getElementById("app").style.display = "grid";
@@ -765,7 +771,6 @@
         }, 800);
     }
 
-    /* Sidebar Layout Toggle System */
     function toggleSidebarMenuState() {
         const appContainer = document.getElementById("app");
         const indicatorArrow = document.getElementById("toggleSidebarBtn");
@@ -779,7 +784,6 @@
         }
     }
 
-    /* Realtime Listener Sync Pipeline */
     function listenForGlobalParties() {
         const activeThreshold = Date.now() - (12 * 60 * 60 * 1000); 
         db.collection("rave_parties")
@@ -857,7 +861,6 @@
         localStorage.setItem("cl_active_room_id", roomId);
         localStorage.setItem("cl_app_state", "THEATER");
 
-        // UI View Layout Modifications
         document.getElementById("lobbyExplorerView").style.display = "none";
         document.getElementById("activeTheaterView").style.display = "block";
         document.getElementById("cloudLibrarySection").style.display = "block";
@@ -868,7 +871,6 @@
         document.getElementById("syncStatusIndicator").className = "status-pill bg-danger text-white";
         document.getElementById("syncStatusIndicator").innerText = "● Live Shared Session Room";
 
-        // Connect Realtime Chat Engine Listener
         initializeChatroomChannel(roomId);
 
         roomUnsubscribe = db.collection("rave_parties").doc(roomId).onSnapshot(doc => {
@@ -878,19 +880,23 @@
             }
             const data = doc.data();
             isRoomHost = (data.hostName === currentSessionUser);
+            lastKnownHostState = { playing: data.playing, currentTime: data.currentTime };
+
+            const lockOverlay = document.getElementById("guestLockOverlay");
 
             if (isRoomHost) {
                 document.getElementById("mediaControllerCard").style.display = "block";
-                if(document.getElementById("sharedPlayer")) player.controls = true;
+                if(lockOverlay) lockOverlay.style.display = "none"; 
+                if(player) player.controls = true;
             } else {
                 document.getElementById("mediaControllerCard").style.display = "none";
-                if(document.getElementById("sharedPlayer")) player.controls = false;
+                if(lockOverlay) lockOverlay.style.display = "block"; 
+                if(player) player.controls = false; 
             }
 
             document.getElementById("roomTitleHeader").innerText = `${data.hostName}'s Watch Space`;
             document.getElementById("roomSubHeader").innerText = `Syncing Target: ${data.mediaTitle}`;
 
-            // Evaluate if running a direct asset link or an embedded iframe link (YouTube)
             if (data.mediaUrl.includes("youtube.com/embed/")) {
                 renderYouTubeIframePlayer(data.mediaUrl);
             } else {
@@ -901,7 +907,7 @@
                     player.load();
                 }
 
-                if (Math.abs(player.currentTime - data.currentTime) > 1.5) {
+                if (Math.abs(player.currentTime - data.currentTime) > 1.8) {
                     isInternalUpdate = true;
                     player.currentTime = data.currentTime;
                 }
@@ -917,34 +923,77 @@
         });
     }
 
-    /* Embedded YouTube Player Iframe Transformer Module */
     function renderYouTubeIframePlayer(embedUrl) {
         const container = document.getElementById("playerParentFrameContainer");
-        // Verify if the iframe is already loaded to avoid cycling refreshes
         const existingIframe = container.querySelector("iframe");
         if (existingIframe && existingIframe.src === embedUrl) return;
 
-        container.innerHTML = `<iframe class="yt-player-frame" src="${embedUrl}" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>`;
+        container.innerHTML = `
+            <div id="guestLockOverlay" class="guest-lock-overlay" style="display: ${isRoomHost ? 'none' : 'block'}"></div>
+            <iframe class="yt-player-frame" src="${embedUrl}" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
+        `;
     }
 
     function restoreNativeVideoPlayerLayout() {
         const container = document.getElementById("playerParentFrameContainer");
-        if (container.querySelector("video")) return; // Video node is present
+        if (container.querySelector("video")) return; 
 
         container.innerHTML = `
-            <video id="sharedPlayer" controls playsinline>
+            <div id="guestLockOverlay" class="guest-lock-overlay" style="display: ${isRoomHost ? 'none' : 'block'}"></div>
+            <video id="sharedPlayer" controls playsinline webkit-playsinline disablePictureInPicture>
                 <source id="videoSource" src="" type="video/mp4">
             </video>
         `;
         
-        // Re-bind listeners to newly mounted player instance node
-        const newPlayer = document.getElementById("sharedPlayer");
-        newPlayer.addEventListener("play", () => { if (isRoomHost) broadcastPlayerState(true); });
-        newPlayer.addEventListener("pause", () => { if (isRoomHost) broadcastPlayerState(false); });
-        newPlayer.addEventListener("seeked", () => { if (isRoomHost) broadcastPlayerState(!newPlayer.paused); });
-        
-        // Refresh context pointer referencing active DOM instance
-        window.player = newPlayer;
+        setupPlayerEventListeners();
+    }
+
+    function setupPlayerEventListeners() {
+        player = document.getElementById("sharedPlayer");
+        if (!player) return;
+
+        player.addEventListener("play", () => { 
+            if (isRoomHost) {
+                broadcastPlayerState(true); 
+            } else {
+                if (!isInternalUpdate) {
+                    isInternalUpdate = true;
+                    player.pause();
+                    if(lastKnownHostState.playing) {
+                        player.play().catch(()=>{});
+                    }
+                }
+            }
+            isInternalUpdate = false;
+        });
+
+        player.addEventListener("pause", () => { 
+            if (isRoomHost) {
+                broadcastPlayerState(false); 
+            } else {
+                if (!isInternalUpdate) {
+                    isInternalUpdate = true;
+                    if(lastKnownHostState.playing) {
+                        player.play().catch(()=>{});
+                    } else {
+                        player.pause();
+                    }
+                }
+            }
+            isInternalUpdate = false;
+        });
+
+        player.addEventListener("seeked", () => { 
+            if (isRoomHost) {
+                broadcastPlayerState(!player.paused); 
+            } else {
+                if (!isInternalUpdate) {
+                    isInternalUpdate = true;
+                    player.currentTime = lastKnownHostState.currentTime;
+                }
+            }
+            isInternalUpdate = false;
+        });
     }
 
     function triggerYouTubeSyncLoad() {
@@ -975,7 +1024,6 @@
         document.getElementById("youtubeTargetUrl").value = "";
     }
 
-    /* Live Chatbox Sync Data Pipe Module */
     function initializeChatroomChannel(roomId) {
         if(chatUnsubscribe) chatUnsubscribe();
         const container = document.getElementById("chatScroller");
@@ -1021,24 +1069,23 @@
         if (chatUnsubscribe) chatUnsubscribe();
         
         const appContainer = document.getElementById("app");
-        appContainer.classList.remove("sidebar-hidden"); // Restore side menu layer if hidden
+        appContainer.classList.remove("sidebar-hidden"); 
 
         restoreNativeVideoPlayerLayout();
-        player.pause();
+        if(player) player.pause();
         
         currentRoomId = null;
         isRoomHost = false;
         localStorage.removeItem("cl_active_room_id");
         localStorage.setItem("cl_app_state", "LOBBY");
 
-        // Reset App Interfaces to Lobby Explorer view Mode
         document.getElementById("activeTheaterView").style.display = "none";
         document.getElementById("cloudLibrarySection").style.display = "none";
         document.getElementById("exitPartyBtn").style.display = "none";
         document.getElementById("lobbyExplorerView").style.display = "block";
         document.getElementById("hostSessionBtn").disabled = false;
         document.getElementById("toggleSidebarBtn").style.display = "none";
-        player.controls = true; 
+        if(player) player.controls = true; 
 
         document.getElementById("syncStatusIndicator").className = "status-pill bg-secondary text-white";
         document.getElementById("syncStatusIndicator").innerText = "Standalone Offline Mode";
@@ -1061,16 +1108,8 @@
         await db.collection("rave_parties").doc(roomId).delete();
     }
 
-    // Capture Local Events and update database ONLY if local user is the Room Host
-    player.addEventListener("play", () => { if (isRoomHost) broadcastPlayerState(true); });
-    player.addEventListener("pause", () => { if (isRoomHost) broadcastPlayerState(false); });
-    player.addEventListener("seeked", () => { if (isRoomHost) broadcastPlayerState(!player.paused); });
-
     function broadcastPlayerState(isPlaying) {
-        if (!currentRoomId || isInternalUpdate) {
-            isInternalUpdate = false; 
-            return;
-        }
+        if (!currentRoomId || isInternalUpdate || !isRoomHost) return;
         
         db.collection("rave_parties").doc(currentRoomId).update({
             currentTime: player.currentTime,
@@ -1100,7 +1139,6 @@
         document.getElementById("targetMediaUrl").value = "";
     }
 
-    /* 30-Minute Inactivity Clean Routine Engine */
     function startStaleRoomsCleanupRoutine() {
         setInterval(async () => {
             const halfHourInMs = 30 * 60 * 1000;
@@ -1112,12 +1150,13 @@
                 const lastActivity = data.lastUpdated || data.createdAt || 0;
                 
                 if (lastActivity < staleThreshold) {
-                    console.log(`Auto-deleting inactive room: ${doc.id}`);
                     await db.collection("rave_parties").doc(doc.id).delete();
                 }
             });
         }, 60000); 
     }
+
+    setupPlayerEventListeners();
 </script>
 
 </body>
