@@ -69,84 +69,82 @@
             transition: all 0.5s ease;
         }
 
-        .btn-enter.show {
-            opacity: 1;
-            transform: translateY(0);
-        }
-
+        .btn-enter.show { opacity: 1; transform: translateY(0); }
         .btn-enter:hover {
             background-color: var(--dark-pink);
             color: white;
             transform: scale(1.05);
-            box-shadow: 0 6px 20px rgba(255, 75, 114, 0.6);
         }
 
-        /* --- Watch Party Application Interface --- */
+        /* --- Application Layout --- */
         #app {
             display: grid;
-            grid-template-columns: 320px 1fr;
+            grid-template-columns: 350px 1fr;
             height: 100vh;
             opacity: 0;
             transition: opacity 0.5s ease;
         }
 
-        /* Sidebar Drive Panel */
-        .drive-sidebar {
+        .sidebar {
             background-color: var(--card-dark);
             border-right: 1px solid #2d2d37;
             display: flex;
             flex-direction: column;
             padding: 20px;
+            overflow-y: auto;
         }
 
-        .drive-header {
+        .section-title {
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #6b7280;
+            font-weight: 600;
+            margin-top: 1.5rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .drive-btn {
+            background: #25252e;
+            border: 1px dashed #4b4b5e;
+            color: #e5e7eb;
             display: flex;
             align-items: center;
+            justify-content: center;
             gap: 10px;
-            font-weight: 600;
-            margin-bottom: 1.5rem;
-            padding-bottom: 10px;
-            border-bottom: 1px solid #2d2d37;
+            padding: 12px;
+            border-radius: 8px;
+            width: 100%;
+            transition: all 0.2s ease;
+            text-decoration: none !important;
         }
 
-        .drive-header img {
-            width: 24px;
-            height: 24px;
+        .drive-btn:hover {
+            border-color: #4285f4;
+            background: rgba(66, 133, 244, 0.05);
+            color: white;
         }
 
-        .movie-list {
-            overflow-y: auto;
-            flex-grow: 1;
-        }
-
-        .movie-item {
+        /* Parties Room Cards */
+        .party-card {
             background: #25252e;
             border: 1px solid #333342;
             border-radius: 8px;
-            padding: 12px;
+            padding: 14px;
             margin-bottom: 10px;
-            cursor: pointer;
-            transition: all 0.2s ease;
+            transition: all 0.2s;
         }
-
-        .movie-item:hover {
+        .party-card.active {
             border-color: var(--primary-pink);
-            background: #2b2b36;
+            background: rgba(255, 75, 114, 0.03);
         }
 
-        /* Main Theater Content Area */
+        /* Main Screen Layout */
         .main-theater {
             display: flex;
             flex-direction: column;
             padding: 24px;
             overflow-y: auto;
-        }
-
-        .theater-nav {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
         }
 
         .video-container {
@@ -157,32 +155,15 @@
             box-shadow: 0 10px 30px rgba(0,0,0,0.5);
             aspect-ratio: 16 / 9;
             width: 100%;
-            max-height: 70vh;
         }
 
-        video {
-            width: 100%;
-            height: 100%;
-            object-fit: contain;
-        }
+        video { width: 100%; height: 100%; object-fit: contain; }
 
-        .sync-indicator {
-            background-color: rgba(255, 75, 114, 0.15);
-            border: 1px solid var(--primary-pink);
-            color: var(--primary-pink);
-            font-size: 0.85rem;
-            border-radius: 6px;
-            padding: 6px 12px;
-        }
-
-        @media (max-width: 991px) {
-            #app {
-                grid-template-columns: 1fr;
-                height: auto;
-            }
-            .drive-sidebar {
-                height: 300px;
-            }
+        .status-pill {
+            font-size: 0.75rem;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-weight: 600;
         }
     </style>
 </head>
@@ -196,45 +177,57 @@
 
 <!-- Main Co-Watching Space Application -->
 <div id="app">
-    <!-- Google Drive Media Navigator -->
-    <aside class="drive-sidebar">
-        <div class="drive-header">
-            <!-- Google Drive Standard Mini Icon Branding -->
-            <img src="https://upload.wikimedia.org/wikipedia/commons/1/12/Google_Drive_icon_%282020%29.svg" alt="Drive">
-            <span>Leigh's Movie Drive</span>
-        </div>
-        
-        <div class="mb-3">
-            <label class="form-label small text-muted">Add New Shared Video URL</label>
-            <div class="input-group input-group-sm">
-                <input type="text" id="videoUrlInput" class="form-control bg-dark text-white border-secondary" placeholder="Paste Drive/Direct stream URL...">
-                <button class="btn btn-outline-danger" onclick="addNewMovie()">Add</button>
-            </div>
-            <div class="form-text text-muted" style="font-size: 10px;">Ensure your Google Drive file is set to "Anyone with the link can view".</div>
+    <!-- Party Control & Drive Panel Sidebar -->
+    <aside class="sidebar">
+        <div class="d-flex align-items-center gap-3 mb-4">
+            <div class="rounded-circle bg-danger d-inline-block" style="width:12px; height:12px; animate: pulse 2s infinite;"></div>
+            <h5 class="mb-0 fw-bold">Rave Watch Hub</h5>
         </div>
 
-        <div class="movie-list" id="movieList">
-            <!-- Dynamic Movie Assets Load Here -->
+        <!-- Google Drive Access Point -->
+        <div class="section-title">Your Cloud Library</div>
+        <a href="https://drive.google.com/" target="_blank" class="drive-btn mb-2">
+            <img src="https://upload.wikimedia.org/wikipedia/commons/1/12/Google_Drive_icon_%282020%29.svg" alt="Drive" style="width:20px;">
+            <span>Open Google Drive Target</span>
+        </a>
+        
+        <!-- Live Rave Parties System Manager -->
+        <div class="section-title">Watch Party Manager</div>
+        <div class="d-grid gap-2 mb-3">
+            <button class="btn btn-danger btn-sm py-2 fw-bold" onclick="createNewParty()">🎬 Host New Watch Session</button>
+        </div>
+
+        <div class="section-title">Available Active Host Rooms</div>
+        <div id="activePartiesList">
+            <div class="text-muted small text-center py-3">No active parties found. Click above to host!</div>
         </div>
     </aside>
 
-    <!-- Room Screen Display Container -->
+    <!-- Room Theater Content Frame Area -->
     <main class="main-theater">
-        <header class="theater-nav">
+        <header class="d-flex justify-content-between align-items-center mb-3">
             <div>
-                <h4 class="mb-1" id="currentTrackTitle">No Video Loaded</h4>
-                <p class="text-muted small mb-0">Rooms synchronize actions across sessions automatically.</p>
+                <h4 class="mb-1" id="roomTitleHeader">Viewing Lobby</h4>
+                <div class="small text-muted" id="roomSubHeader">Join or create a live sync room to get started.</div>
             </div>
-            <div class="d-flex align-items-center gap-2">
-                <span class="sync-indicator">● Live Synchronization Connected</span>
-            </div>
+            <div id="syncStatusIndicator" class="status-pill bg-secondary text-white">Standalone Offline Mode</div>
         </header>
 
-        <div class="video-container">
+        <!-- Media Output Core Frame Element -->
+        <div class="video-container mb-3">
             <video id="sharedPlayer" controls playsinline>
-                <source id="videoSource" src="" type="video/mp4">
-                Your browser does not support the video tag.
+                <!-- Standard reliable public sample asset to test multi-terminal syncing speed -->
+                <source id="videoSource" src="https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4" type="video/mp4">
             </video>
+        </div>
+
+        <!-- URL Update Bar within Active Room Contexts -->
+        <div class="card bg-dark border-secondary p-3" id="mediaControllerCard" style="display: none;">
+            <label class="form-label small text-muted fw-bold">Update Active Room Media Target URL</label>
+            <div class="input-group">
+                <input type="text" id="targetMediaUrl" class="form-control bg-secondary text-white border-0" placeholder="Paste your direct video link or Google Drive URL stream link...">
+                <button class="btn btn-danger" onclick="updateRoomMedia()">Load Target</button>
+            </div>
         </div>
     </main>
 </div>
@@ -244,83 +237,128 @@
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
 
 <script>
-    // Initialize Firebase Database Integration Context
+    // Config Firebase Firestore Backends
     firebase.initializeApp({
         apiKey: "AIzaSyA-nzm4JKM6QdwVxcVu6uWUeRy9n5hJZpU",
         authDomain: "inventory-system-67e2e.firebaseapp.com",
         projectId: "inventory-system-67e2e"
     });
     const db = firebase.firestore();
-    const roomRef = db.collection("watch_party_room").doc("shared_session");
+    const player = document.getElementById("sharedPlayer");
 
-    // UI State & Typing Elements
     const targetPhrase = "I Love You Leighhhhh";
     let index = 0;
+    let currentRoomId = null;
+    let roomUnsubscribe = null;
     let isInternalUpdate = false;
 
-    // Trigger sequential animation processing loops on window load
-    window.onload = function() {
-        setTimeout(typeLetter, 600);
-    };
+    // UI Initializers Animation Sequences
+    window.onload = function() { setTimeout(typeLetter, 500); };
 
     function typeLetter() {
         if (index < targetPhrase.length) {
             document.getElementById("revealText").innerHTML += targetPhrase.charAt(index);
             index++;
-            setTimeout(typeLetter, 120 + Math.random() * 60); // Dynamic variable writing pacing
+            setTimeout(typeLetter, 100);
         } else {
             document.getElementById("enterBtn").classList.add("show");
         }
     }
 
     function enterApp() {
-        const welcome = document.getElementById("welcomeScreen");
-        const app = document.getElementById("app");
-        
-        welcome.style.opacity = "0";
+        document.getElementById("welcomeScreen").style.opacity = "0";
         setTimeout(() => {
-            welcome.style.display = "none";
-            app.style.display = "grid";
-            setTimeout(() => app.style.opacity = "1", 50);
-            
-            // Boot media streaming synchronization layers
-            initPartyRoom();
+            document.getElementById("welcomeScreen").style.display = "none";
+            document.getElementById("app").style.display = "grid";
+            setTimeout(() => { document.getElementById("app").style.opacity = "1"; }, 50);
+            listenForGlobalParties();
         }, 800);
     }
 
-    /* --- Co-Watch Party Room Coordination Infrastructure --- */
-    const player = document.getElementById("sharedPlayer");
+    /* --- Dynamic Rave-Style Multi-Room Hosting Operations --- */
+    
+    function listenForGlobalParties() {
+        // Look for rooms active within the last 4 hours to keep the lobby fresh
+        const activeThreshold = Date.now() - (4 * 60 * 60 * 1000);
+        
+        db.collection("rave_parties")
+          .where("createdAt", ">", activeThreshold)
+          .onSnapshot(snapshot => {
+              const listContainer = document.getElementById("activePartiesList");
+              listContainer.innerHTML = "";
 
-    // Default internal fallback database lists (Replace URLs below with actual Drive streaming sources if desired)
-    let defaultMovies = [
-        { id: "m1", title: "Our First Romantic Flick", url: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4" },
-        { id: "m2", title: "Leigh's Favorite Choice", url: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4" }
-    ];
+              if(snapshot.empty) {
+                  listContainer.innerHTML = `<div class="text-muted small text-center py-3">No active parties available.</div>`;
+                  return;
+              }
 
-    function initPartyRoom() {
-        renderMoviesList();
+              snapshot.forEach(doc => {
+                  const party = doc.data();
+                  const isCurrent = (doc.id === currentRoomId);
+                  listContainer.innerHTML += `
+                      <div class="party-card ${isCurrent ? 'active' : ''}">
+                          <div class="fw-bold text-truncate text-white">🎬 ${party.hostName}'s Session</div>
+                          <div class="small text-muted mb-2" style="font-size:11px;">Active Track: ${party.mediaTitle || 'Sample Loop'}</div>
+                          <button class="btn btn-sm w-100 ${isCurrent ? 'btn-outline-danger disabled' : 'btn-danger'}" 
+                                  onclick="connectToPartyRoom('${doc.id}')">
+                              ${isCurrent ? 'Connected' : 'Join Sync Party'}
+                          </button>
+                      </div>
+                  `;
+              });
+          });
+    }
 
-        // Listen for database playback adjustments from partner
-        roomRef.onSnapshot(doc => {
-            if (!doc.exists) {
-                // Initialize clean room schema state
-                roomRef.set({ currentTime: 0, playing: false, currentVideoId: "m1", title: defaultMovies[0].title, url: defaultMovies[0].url, lastUpdated: Date.now() });
-                return;
-            }
+    async function createNewParty() {
+        const hostIdentity = prompt("Enter your name to host (e.g., Admin or Leigh):") || "Host";
+        
+        const newPartyRef = db.collection("rave_parties").doc();
+        const partyPayload = {
+            hostName: hostIdentity,
+            mediaUrl: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4",
+            mediaTitle: "Standard Synchronization Sample",
+            currentTime: 0,
+            playing: false,
+            createdAt: Date.now(),
+            lastUpdated: Date.now()
+        };
 
+        await newPartyRef.set(partyPayload);
+        connectToPartyRoom(newPartyRef.id);
+    }
+
+    function connectToPartyRoom(roomId) {
+        // Disconnect from existing subscriptions if changing channels
+        if (roomUnsubscribe) roomUnsubscribe();
+        currentRoomId = roomId;
+
+        document.getElementById("mediaControllerCard").style.display = "block";
+        const statusPill = document.getElementById("syncStatusIndicator");
+        statusPill.className = "status-pill bg-danger text-white";
+        statusPill.innerText = "● Linked Shared Session Room";
+
+        // Listen for internal player state changes across room documents
+        roomUnsubscribe = db.collection("rave_parties").doc(roomId).onSnapshot(doc => {
+            if (!doc.exists) return;
             const data = doc.data();
-            
-            // Update source track context state if modified remotely
-            if (document.getElementById("videoSource").src !== data.url) {
-                changeTrackSource(data.title, data.url, false);
+
+            document.getElementById("roomTitleHeader").innerText = `${data.hostName}'s Watch Space`;
+            document.getElementById("roomSubHeader").innerText = `Syncing Target: ${data.mediaTitle}`;
+
+            // Sync video sources if updated
+            if (document.getElementById("videoSource").src !== data.mediaUrl) {
+                isInternalUpdate = true;
+                document.getElementById("videoSource").src = data.mediaUrl;
+                player.load();
             }
 
-            // Sync structural parameters if drift variance exceeds standard tolerance metrics
-            if (Math.abs(player.currentTime - data.currentTime) > 1.8) {
+            // Correct playback drift variance metrics tolerances safely
+            if (Math.abs(player.currentTime - data.currentTime) > 1.5) {
                 isInternalUpdate = true;
                 player.currentTime = data.currentTime;
             }
 
+            // Sync play/pause states
             if (data.playing && player.paused) {
                 isInternalUpdate = true;
                 player.play().catch(() => {});
@@ -329,79 +367,50 @@
                 player.pause();
             }
         });
-
-        // Event hooks monitoring local interactions to sync to cloud backend databases
-        player.addEventListener("play", () => pushSyncState(true));
-        player.addEventListener("pause", () => pushSyncState(false));
-        player.addEventListener("seeked", () => pushSyncState(!player.paused));
     }
 
-    function pushSyncState(isPlaying) {
+    // Capture user interface playback changes to send out to connected partner terminals
+    player.addEventListener("play", () => broadcastPlayerState(true));
+    player.addEventListener("pause", () => broadcastPlayerState(false));
+    player.addEventListener("seeked", () => broadcastPlayerState(!player.paused));
+
+    function broadcastPlayerState(isPlaying) {
+        if (!currentRoomId) return;
         if (isInternalUpdate) {
-            isInternalUpdate = false; // Block internal rendering cycles from looping back out to database
+            isInternalUpdate = false; // Block state response update echoes
             return;
         }
-        roomRef.update({
+
+        db.collection("rave_parties").doc(currentRoomId).update({
             currentTime: player.currentTime,
             playing: isPlaying,
             lastUpdated: Date.now()
         });
     }
 
-    function renderMoviesList() {
-        const container = document.getElementById("movieList");
-        container.innerHTML = "";
-        defaultMovies.forEach(movie => {
-            container.innerHTML += `
-                <div class="movie-item" onclick="selectMovie('${movie.title}', '${movie.url}')">
-                    <div class="fw-bold text-truncate">${movie.title}</div>
-                    <div class="small text-muted text-truncate" style="font-size: 11px;">${movie.url}</div>
-                </div>
-            `;
+    function updateRoomMedia() {
+        if(!currentRoomId) {
+            alert("Please create or join a host party session before updating media.");
+            return;
+        }
+        const rawUrl = document.getElementById("targetMediaUrl").value.trim();
+        if (!rawUrl) return;
+
+        let processedUrl = rawUrl;
+        // Transform normal Google Drive viewing page links into direct playback streams automatically
+        if (rawUrl.includes("drive.google.com/file/d/")) {
+            const fileId = rawUrl.split("/file/d/")[1].split("/")[0];
+            processedUrl = `https://docs.google.com/uc?export=download&id=${fileId}`;
+        }
+
+        db.collection("rave_parties").doc(currentRoomId).update({
+            mediaUrl: processedUrl,
+            mediaTitle: "Custom Selected Media File",
+            currentTime: 0,
+            playing: false,
+            lastUpdated: Date.now()
         });
-    }
-
-    function selectMovie(title, url) {
-        changeTrackSource(title, url, true);
-    }
-
-    function changeTrackSource(title, url, shouldPushToDatabase) {
-        document.getElementById("currentTrackTitle").innerText = title;
-        const source = document.getElementById("videoSource");
-        
-        // Transform standard Google Drive page links into direct playback file links
-        let streamUrl = url;
-        if(url.includes("drive.google.com/file/d/")) {
-            const fileId = url.split("/file/d/")[1].split("/")[0];
-            streamUrl = `https://docs.google.com/uc?export=download&id=${fileId}`;
-        }
-
-        source.src = streamUrl;
-        player.load();
-
-        if (shouldPushToDatabase) {
-            roomRef.update({
-                title: title,
-                url: streamUrl,
-                currentTime: 0,
-                playing: false,
-                lastUpdated: Date.now()
-            });
-        }
-    }
-
-    function addNewMovie() {
-        const input = document.getElementById("videoUrlInput");
-        const url = input.value.trim();
-        if (!url) return;
-
-        const title = `Shared Stream #${defaultMovies.length + 1}`;
-        const newTrack = { id: "custom_" + Date.now(), title: title, url: url };
-        
-        defaultMovies.push(newTrack);
-        renderMoviesList();
-        selectMovie(title, url);
-        input.value = "";
+        document.getElementById("targetMediaUrl").value = "";
     }
 </script>
 
