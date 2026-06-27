@@ -362,7 +362,7 @@
 
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
-<script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
+<script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 
 <script>
     const EMAILJS_PUBLIC_KEY = "Swo8GBWhAAP4PEWdS";
@@ -370,7 +370,7 @@
     const EMAILJS_VERIFY_TEMPLATE_ID = "template_a4n6baq";
     const EMAILJS_RECOVER_TEMPLATE_ID = "template_skd3uhp";
 
-    emailjs.init(EMAILJS_PUBLIC_KEY);
+    emailjs.init({ publicKey: EMAILJS_PUBLIC_KEY });
 
     firebase.initializeApp({
         apiKey: "AIzaSyA-nzm4JKM6QdwVxcVu6uWUeRy9n5hJZpU",
@@ -390,9 +390,8 @@
     let pendingRegistrationData = null;
     let currentGeneratedCode = null;
 
-    // Form Enforcement Logic
+    // Strict UI Rule Validators
     function cleanUsernameInput(element) {
-        // Automatically strips all spaces and symbols in real-time
         element.value = element.value.replace(/[^a-zA-Z0-9]/g, '');
     }
 
@@ -409,11 +408,7 @@
 
     function togglePasswordDisplay(inputId) {
         const field = document.getElementById(inputId);
-        if (field.type === "password") {
-            field.type = "text";
-        } else {
-            field.type = "password";
-        }
+        field.type = field.type === "password" ? "text" : "password";
     }
 
     function toggleAuthViews(target) {
@@ -431,7 +426,6 @@
             const passConf = document.getElementById("regPassConf").value.trim();
 
             if(!user || !email || !pass || !passConf) return alert("Please fill out all fields.");
-            
             if(user.length > 16) return alert("Username can't exceed 16 characters.");
             if(!/^[a-zA-Z0-9]+$/.test(user)) return alert("Username cannot contain spaces or special characters.");
 
@@ -448,18 +442,20 @@
             currentGeneratedCode = Math.floor(100000 + Math.random() * 900000).toString();
             pendingRegistrationData = { username: user, email: email, password: pass };
 
-            try {
-                await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_VERIFY_TEMPLATE_ID, {
-                    to_email: email,
-                    code: currentGeneratedCode
+            const templateParams = {
+                to_email: email,
+                code: currentGeneratedCode
+            };
+
+            emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_VERIFY_TEMPLATE_ID, templateParams)
+                .then(function() {
+                    alert("Verification code dispatched to your Gmail account!");
+                    toggleAuthViews('verify');
+                }, function(error) {
+                    console.error("API error response block:", error);
+                    alert("EmailJS Failed. Status code: " + (error.status || 'unknown') + ". Debug Bypass Code: " + currentGeneratedCode);
+                    toggleAuthViews('verify');
                 });
-                alert("Verification code dispatched to your Gmail account!");
-                toggleAuthViews('verify');
-            } catch (err) {
-                console.error(err);
-                alert("EmailJS Failed. Debug Bypass Code: " + currentGeneratedCode);
-                toggleAuthViews('verify');
-            }
         }
         else if(actionType === 'completeRegistration') {
             const codeInput = document.getElementById("verificationCodeInput").value.trim();
@@ -502,16 +498,18 @@
             if(!userDoc.exists) return alert("No local records match that user profile.");
 
             const userData = userDoc.data();
-            try {
-                await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_RECOVER_TEMPLATE_ID, {
-                    to_email: userData.email,
-                    password: userData.password
+            const recoverParams = {
+                to_email: userData.email,
+                password: userData.password
+            };
+
+            emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_RECOVER_TEMPLATE_ID, recoverParams)
+                .then(function() {
+                    alert(`Your password has been emailed to ${userData.email}.`);
+                    toggleAuthViews('login');
+                }, function(error) {
+                    alert("Error sending recovery email. Your password is: " + userData.password);
                 });
-                alert(`Your password has been emailed to ${userData.email}.`);
-                toggleAuthViews('login');
-            } catch (err) {
-                alert("Error sending recovery email. Your password is: " + userData.password);
-            }
         }
     }
 
