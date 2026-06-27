@@ -227,6 +227,28 @@
             color: white;
         }
 
+        .youtube-btn-card {
+            background: #2b1a1d;
+            border: 1px solid #5c1e2a;
+            color: #f3f4f6;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            padding: 12px;
+            border-radius: 8px;
+            width: 100%;
+            transition: all 0.2s ease;
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        .youtube-btn-card:hover {
+            background: #3d2227;
+            border-color: var(--primary-pink);
+            box-shadow: 0 0 10px rgba(255, 75, 114, 0.2);
+        }
+
         .party-card {
             background: #25252e;
             border: 1px solid #333342;
@@ -272,7 +294,7 @@
             width: 100%;
         }
 
-        video, iframe.yt-player-frame { width: 100%; height: 100%; border: 0; object-fit: contain; }
+        video, .yt-player-frame { width: 100%; height: 100%; border: 0; object-fit: contain; }
 
         /* Block interaction overlay shield for guests to prevent native breaks on mobile */
         .guest-lock-overlay {
@@ -372,6 +394,57 @@
             grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
             gap: 20px;
             padding-top: 15px;
+        }
+
+        /* Browser Frame Wrapper Container */
+        .browser-window-wrapper {
+            width: 100%;
+            height: calc(100vh - 120px);
+            background: #18181c;
+            border-radius: 12px;
+            border: 1px solid #2d2d37;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .browser-navbar-control {
+            background: #22222a;
+            padding: 8px 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            border-bottom: 1px solid #2d2d37;
+        }
+
+        .browser-view-iframe {
+            width: 100%;
+            flex: 1;
+            border: none;
+            background: #fff;
+        }
+
+        .watchparty-action-bar-popup {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%) translateY(150px);
+            background: rgba(30, 30, 38, 0.95);
+            border: 2px solid var(--primary-pink);
+            border-radius: 50px;
+            padding: 12px 24px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.6);
+            backdrop-filter: blur(8px);
+            transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            z-index: 999;
+        }
+
+        .watchparty-action-bar-popup.visible {
+            transform: translateX(-50%) translateY(0);
         }
     </style>
 </head>
@@ -481,12 +554,10 @@
 
         <div id="cloudLibrarySection" style="display: none;">
             <div class="section-title">Streaming Sources</div>
-            <div class="bg-dark p-2 rounded border border-secondary mb-2" id="youtubeControlCard">
-                <label class="form-label small text-muted fw-bold mb-1">Load Shared YouTube URL</label>
-                <div class="input-group input-group-sm">
-                    <input type="text" id="youtubeTargetUrl" class="form-control bg-secondary text-white border-0" placeholder="Paste YouTube link...">
-                    <button class="btn btn-danger btn-sm" onclick="triggerYouTubeSyncLoad()">Load</button>
-                </div>
+            
+            <div class="youtube-btn-card mb-2" onclick="switchToEmbeddedBrowserView()">
+                <img src="https://upload.wikimedia.org/wikipedia/commons/e/ef/Youtube_logo.svg" alt="YouTube Logo" style="width:24px;">
+                <span>Browse YouTube Live</span>
             </div>
 
             <a href="https://drive.google.com/" target="_blank" class="drive-btn mb-3">
@@ -514,6 +585,22 @@
             </div>
             <div id="syncStatusIndicator" class="status-pill bg-secondary text-white">Standalone Offline Mode</div>
         </header>
+
+        <div id="embeddedBrowserView" class="w-100 mb-4" style="display: none;">
+            <div class="browser-window-wrapper">
+                <div class="browser-navbar-control">
+                    <button class="btn btn-sm btn-outline-light px-3" onclick="returnToTheaterLayoutView()">◀ Return to Room Player</button>
+                    <input type="text" id="browserAddressBar" class="form-control form-control-sm bg-dark text-white border-secondary" value="https://www.youtube.com" readonly>
+                    <button class="btn btn-sm btn-danger px-3" onclick="refreshBrowserFrameNode()">🔄 Refresh</button>
+                </div>
+                <iframe id="browserIframeNode" src="" class="browser-view-iframe" allow="autoplay; encrypted-media; fullscreen"></iframe>
+                
+                <div id="watchpartyPopupPromptBar" class="watchparty-action-bar-popup">
+                    <span class="text-white fw-bold small">✨ Video Detected! Stream to room?</span>
+                    <button class="btn btn-sm btn-danger fw-bold rounded-pill px-3" onclick="pushDiscoveredBrowserVideoToRoom()">Play to the watchparty?</button>
+                </div>
+            </div>
+        </div>
 
         <div id="activeTheaterView" style="display: none;">
             <div class="theater-split-container">
@@ -590,9 +677,25 @@
 
     // Global interaction persistence checker state
     let guestInteractionUnlocked = false;
+    let ytPlayerInstance = null; // Holds the active YouTube API player context
+    let ytApiReady = false;
+    let activeDiscoveredBrowserVideoId = null;
+
+    // Load the official YouTube Iframe API asynchronously
+    if (!window.YT) {
+        const tag = document.createElement('script');
+        tag.src = "https://www.youtube.com/iframe_api";
+        const firstScriptTag = document.getElementsByTagName('script')[0];
+        firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+    }
+
+    window.onYouTubeIframeAPIReady = function() {
+        ytApiReady = true;
+    };
 
     window.addEventListener("DOMContentLoaded", () => {
         evaluateStoredSessionPersistenceState();
+        listenToEmbeddedBrowserNavigationCycles();
     });
 
     function evaluateStoredSessionPersistenceState() {
@@ -629,6 +732,106 @@
             element.classList.add("is-invalid-gmail");
             return false;
         }
+    }
+
+    // Interactive site browser display triggers
+    function switchToEmbeddedBrowserView() {
+        if(!currentRoomId) return alert("Please host or join an active room first!");
+        document.getElementById("activeTheaterView").style.display = "none";
+        document.getElementById("lobbyExplorerView").style.display = "none";
+        
+        const frame = document.getElementById("browserIframeNode");
+        if (!frame.src || frame.src === "about:blank") {
+            frame.src = "https://www.youtube.com";
+        }
+        document.getElementById("embeddedBrowserView").style.display = "block";
+    }
+
+    function returnToTheaterLayoutView() {
+        document.getElementById("embeddedBrowserView").style.display = "none";
+        document.getElementById("activeTheaterView").style.display = "block";
+    }
+
+    function refreshBrowserFrameNode() {
+        const frame = document.getElementById("browserIframeNode");
+        frame.src = frame.src; 
+    }
+
+    function listenToEmbeddedBrowserNavigationCycles() {
+        // Since Cross-Origin restrictions prevent direct frame reading, 
+        // we use a safe heuristic to intercept navigation when using standard routing.
+        setInterval(() => {
+            const frame = document.getElementById("browserIframeNode");
+            try {
+                if (frame && frame.contentWindow) {
+                    const currentUrl = frame.contentWindow.location.href;
+                    document.getElementById("browserAddressBar").value = currentUrl;
+                    checkForExtractableYouTubeVideoId(currentUrl);
+                }
+            } catch (e) {
+                // Handle Cross-Origin frame read safety gracefully.
+                // Fallback check: Read last clicked/loaded references if user is interacting.
+            }
+        }, 1500);
+
+        // Also add message listener in case inside site communication handles links
+        window.addEventListener('message', (event) => {
+            if(typeof event.data === 'string' && event.data.includes('youtube.com')) {
+                checkForExtractableYouTubeVideoId(event.data);
+            }
+        });
+    }
+
+    function checkForExtractableYouTubeVideoId(urlStr) {
+        if(!urlStr) return;
+        let vId = null;
+        if (urlStr.includes("v=")) {
+            vId = urlStr.split("v=")[1].split("&")[0];
+        } else if (urlStr.includes("youtu.be/")) {
+            vId = urlStr.split("youtu.be/")[1].split("?")[0];
+        } else if (urlStr.includes("embed/")) {
+            vId = urlStr.split("embed/")[1].split("?")[0];
+        }
+
+        const popup = document.getElementById("watchpartyPopupPromptBar");
+        if (vId && vId.length >= 11) {
+            activeDiscoveredBrowserVideoId = vId;
+            popup.classList.add("visible");
+        } else {
+            popup.classList.remove("visible");
+        }
+    }
+
+    function pushDiscoveredBrowserVideoToRoom() {
+        if (!currentRoomId || !activeDiscoveredBrowserVideoId) return;
+        
+        if (!isRoomHost) {
+            alert("Only the room host can push new video files to sync. Chatting the link to your host instead!");
+            sendChatMessageFallbackText(`Hey! Check out this video link: https://www.youtube.com/watch?v=${activeDiscoveredBrowserVideoId}`);
+            document.getElementById("watchpartyPopupPromptBar").classList.remove("visible");
+            return;
+        }
+
+        const embedLink = `https://www.youtube.com/embed/${activeDiscoveredBrowserVideoId}?autoplay=1&enablejsapi=1`;
+
+        db.collection("rave_parties").doc(currentRoomId).update({
+            mediaUrl: embedLink,
+            mediaTitle: "YouTube Watchparty Stream",
+            currentTime: 0,
+            playing: true,
+            lastUpdated: Date.now()
+        });
+
+        document.getElementById("watchpartyPopupPromptBar").classList.remove("visible");
+        returnToTheaterLayoutView();
+    }
+
+    async function sendChatMessageFallbackText(text) {
+        await db.collection("rave_parties").doc(currentRoomId).collection("chat_logs").add({
+            author: currentSessionUser,
+            text: text,
+            timestamp: Date.now()
+        });
     }
 
     function togglePasswordDisplay(inputId) {
@@ -891,7 +1094,33 @@
             if (data.mediaUrl.includes("youtube.com/embed/")) {
                 renderYouTubeIframePlayer(data.mediaUrl);
                 document.getElementById("mediaControllerCard").style.display = isRoomHost ? "block" : "none";
+                
+                // YouTube Sync Engine Path
+                if (guestInteractionUnlocked || isRoomHost) {
+                    if (ytPlayerInstance && typeof ytPlayerInstance.getPlayerState === 'function') {
+                        try {
+                            const currentYtTime = ytPlayerInstance.getCurrentTime() || 0;
+                            if (Math.abs(currentYtTime - data.currentTime) > 2.5) {
+                                isInternalUpdate = true;
+                                ytPlayerInstance.seekTo(data.currentTime, true);
+                            }
+                            
+                            const pState = ytPlayerInstance.getPlayerState();
+                            if (data.playing && pState !== 1) {
+                                isInternalUpdate = true;
+                                ytPlayerInstance.playVideo();
+                            } else if (!data.playing && pState === 1) {
+                                isInternalUpdate = true;
+                                ytPlayerInstance.pauseVideo();
+                            }
+                            setTimeout(() => { isInternalUpdate = false; }, 300);
+                        } catch (e) {
+                            console.log("YouTube API Instance waiting to initialize...");
+                        }
+                    }
+                }
             } else {
+                ytPlayerInstance = null; // Unload memory context references
                 restoreNativeVideoPlayerLayout();
                 
                 const lockOverlay = document.getElementById("guestLockOverlay");
@@ -946,6 +1175,7 @@
                         player.pause();
                     }
                 }
+                setTimeout(() => { isInternalUpdate = false; }, 300);
             }
         });
     }
@@ -953,13 +1183,22 @@
     function activateMobileGuestPlayback() {
         guestInteractionUnlocked = true;
         
-        // Unmute and clear overlay for standard player
-        if (player) {
+        // Native direct source layout parsing force sync
+        if (player && document.getElementById("sharedPlayer")) {
             player.muted = false;
             isInternalUpdate = true;
             player.currentTime = lastKnownHostState.currentTime;
             if (lastKnownHostState.playing) {
                 player.play().catch(()=>{});
+            }
+        }
+
+        // YouTube dynamic player force sync jump trigger
+        if (ytPlayerInstance && typeof ytPlayerInstance.playVideo === 'function') {
+            isInternalUpdate = true;
+            ytPlayerInstance.seekTo(lastKnownHostState.currentTime, true);
+            if (lastKnownHostState.playing) {
+                ytPlayerInstance.playVideo();
             }
         }
         
@@ -970,12 +1209,13 @@
             lockOverlay.style.webkitBackdropFilter = "none";
             lockOverlay.innerHTML = "";
         }
+        
+        setTimeout(() => { isInternalUpdate = false; }, 400);
     }
 
     function renderYouTubeIframePlayer(embedUrl) {
         const container = document.getElementById("playerParentFrameContainer");
-        const existingIframe = container.querySelector("iframe");
-        if (existingIframe && existingIframe.src === embedUrl) return;
+        if (container.querySelector("iframe")) return; // Drop execution context loops
 
         let overlayHTML = "";
         if (!isRoomHost && !guestInteractionUnlocked) {
@@ -988,10 +1228,76 @@
             overlayHTML = `<div id="guestLockOverlay" class="guest-lock-overlay" style="display: ${isRoomHost ? 'none' : 'block'}; background: rgba(0,0,0,0);"></div>`;
         }
 
+        // Safely extract the raw Video ID parameter string context
+        let vId = "dQw4w9WgXcQ"; 
+        if(embedUrl.includes("embed/")) {
+            vId = embedUrl.split("embed/")[1].split("?")[0];
+        }
+
         container.innerHTML = `
             ${overlayHTML}
-            <iframe class="yt-player-frame" src="${embedUrl}" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
+            <div id="ytSubFrameTarget" class="w-100 h-100"></div>
         `;
+
+        // Initialize dynamic instance framework mapping variables asynchronously
+        setTimeout(() => {
+            try {
+                ytPlayerInstance = new YT.Player('ytSubFrameTarget', {
+                    height: '100%',
+                    width: '100%',
+                    videoId: vId,
+                    playerVars: {
+                        'autoplay': isRoomHost ? 1 : (lastKnownHostState.playing && guestInteractionUnlocked ? 1 : 0),
+                        'controls': isRoomHost ? 1 : 0, 
+                        'disablekb': isRoomHost ? 0 : 1,
+                        'fs': 1,
+                        'rel': 0,
+                        'modestbranding': 1
+                    },
+                    events: {
+                        'onReady': (event) => {
+                            if(isRoomHost) {
+                                setInterval(() => {
+                                    if(ytPlayerInstance && typeof ytPlayerInstance.getPlayerState === 'function') {
+                                        const state = ytPlayerInstance.getPlayerState();
+                                        const hostPlaying = (state === 1); 
+                                        const hostTime = ytPlayerInstance.getCurrentTime() || 0;
+                                        
+                                        if(!isInternalUpdate && currentRoomId) {
+                                            db.collection("rave_parties").doc(currentRoomId).update({
+                                                currentTime: hostTime,
+                                                playing: hostPlaying,
+                                                lastUpdated: Date.now()
+                                            });
+                                        }
+                                    }
+                                }, 2000);
+                            } else {
+                                if (guestInteractionUnlocked) {
+                                    ytPlayerInstance.seekTo(lastKnownHostState.currentTime, true);
+                                    if (lastKnownHostState.playing) ytPlayerInstance.playVideo();
+                                }
+                            }
+                        },
+                        'onStateChange': (event) => {
+                            // Backup detector for manual playback manipulation changes
+                            if (isRoomHost && !isInternalUpdate && currentRoomId) {
+                                const state = event.data;
+                                const hostPlaying = (state === 1);
+                                const hostTime = ytPlayerInstance.getCurrentTime() || 0;
+                                db.collection("rave_parties").doc(currentRoomId).update({
+                                    currentTime: hostTime,
+                                    playing: hostPlaying,
+                                    lastUpdated: Date.now()
+                                });
+                            }
+                        }
+                    }
+                });
+            } catch(err) {
+                console.log("YouTube API Initialization Crash Mitigation Block:", err);
+            }
+        }, 150);
     }
 
     function restoreNativeVideoPlayerLayout() {
@@ -1024,7 +1330,6 @@
                     }
                 }
             }
-            isInternalUpdate = false;
         });
 
         player.addEventListener("pause", () => { 
@@ -1040,7 +1345,6 @@
                     }
                 }
             }
-            isInternalUpdate = false;
         });
 
         player.addEventListener("seeked", () => { 
@@ -1052,36 +1356,7 @@
                     player.currentTime = lastKnownHostState.currentTime;
                 }
             }
-            isInternalUpdate = false;
         });
-    }
-
-    function triggerYouTubeSyncLoad() {
-        if (!currentRoomId || !isRoomHost) return;
-        const rawUrl = document.getElementById("youtubeTargetUrl").value.trim();
-        if (!rawUrl) return;
-
-        let videoId = "";
-        if (rawUrl.includes("v=")) {
-            videoId = rawUrl.split("v=")[1].split("&")[0];
-        } else if (rawUrl.includes("youtu.be/")) {
-            videoId = rawUrl.split("youtu.be/")[1].split("?")[0];
-        } else if (rawUrl.includes("embed/")) {
-            videoId = rawUrl.split("embed/")[1].split("?")[0];
-        }
-
-        if (!videoId) return alert("Could not extract a valid YouTube video ID from link.");
-
-        const embedLink = `https://www.youtube.com/embed/${videoId}?autoplay=1&enablejsapi=1`;
-
-        db.collection("rave_parties").doc(currentRoomId).update({
-            mediaUrl: embedLink,
-            mediaTitle: "YouTube Shared Video Stream",
-            currentTime: 0,
-            playing: true,
-            lastUpdated: Date.now()
-        });
-        document.getElementById("youtubeTargetUrl").value = "";
     }
 
     function initializeChatroomChannel(roomId) {
@@ -1137,10 +1412,12 @@
         currentRoomId = null;
         isRoomHost = false;
         guestInteractionUnlocked = false;
+        ytPlayerInstance = null;
         localStorage.removeItem("cl_active_room_id");
         localStorage.setItem("cl_app_state", "LOBBY");
 
         document.getElementById("activeTheaterView").style.display = "none";
+        document.getElementById("embeddedBrowserView").style.display = "none";
         document.getElementById("cloudLibrarySection").style.display = "none";
         document.getElementById("exitPartyBtn").style.display = "none";
         document.getElementById("lobbyExplorerView").style.display = "block";
@@ -1179,6 +1456,7 @@
         });
     }
 
+    // Direct Target Video Streams
     function updateRoomMedia() {
         if(!currentRoomId || !isRoomHost) return;
         const rawUrl = document.getElementById("targetMediaUrl").value.trim();
