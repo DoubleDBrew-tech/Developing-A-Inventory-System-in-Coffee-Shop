@@ -482,6 +482,40 @@
             text-align: center;
             box-shadow: 0 15px 35px rgba(0, 0, 0, 0.6);
         }
+
+        /* --- New Real-Time Directory Tracker styling --- */
+        .directory-wrap {
+            background: #15151b;
+            border: 1px solid #2d2d37;
+            border-radius: 8px;
+            padding: 10px;
+            max-height: 220px;
+            overflow-y: auto;
+        }
+        .user-row-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 4px 6px;
+            border-bottom: 1px solid #23232d;
+            font-size: 0.82rem;
+        }
+        .user-row-item:last-child { border-bottom: none; }
+        .dot-status {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 6px;
+        }
+        .dot-online { background-color: #2ec4b6; box-shadow: 0 0 6px #2ec4b6; }
+        .dot-offline { background-color: #4b4b5e; }
+        .badge-role {
+            font-size: 0.68rem;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-weight: 600;
+        }
     </style>
 </head>
 <body>
@@ -628,6 +662,11 @@
             </div>
             <button id="hostSessionBtn" class="btn btn-danger btn-sm w-100 fw-bold py-2" onclick="createNewParty()">🎬 Host Watch Session</button>
         </div>
+
+        <div class="section-title">👥 Space Directory</div>
+        <div class="directory-wrap" id="membersStatusDirectoryBox">
+            <div class="text-center py-3 text-muted small">Loading members grid...</div>
+        </div>
     </aside>
 
     <main class="main-theater">
@@ -721,6 +760,7 @@
     let currentRoomId = null;
     let roomUnsubscribe = null;
     let chatUnsubscribe = null;
+    let directoryUnsubscribe = null; 
     let isInternalUpdate = false;
     let currentSessionUser = "User";
     let isRoomHost = false; 
@@ -754,6 +794,13 @@
         listenToEmbeddedBrowserNavigationCycles();
     });
 
+    // Automatically set offline status state if tab is abruptly killed
+    window.addEventListener("beforeunload", () => {
+        if(currentSessionUser && currentSessionUser !== "User") {
+            db.collection("app_users").doc(currentSessionUser).update({ online: false });
+        }
+    });
+
     function evaluateStoredSessionPersistenceState() {
         const savedUser = localStorage.getItem("cl_active_user");
         const savedRoom = localStorage.getItem("cl_active_room_id");
@@ -766,7 +813,9 @@
             document.getElementById("app").style.display = "grid";
             document.getElementById("app").style.opacity = "1";
             
+            setUserOnlinePresenceState(currentSessionUser, true);
             listenForGlobalParties();
+            listenToGlobalMembersDirectory();
             startStaleRoomsCleanupRoutine();
 
             if (appState === "THEATER" && savedRoom) {
@@ -798,11 +847,16 @@
         document.getElementById("exitActionModalOverlay").style.display = "none";
     }
 
-    function executeExitActionRoute(actionType) {
+    async function executeExitActionRoute(actionType) {
         closeExitOptionsModal();
         if (actionType === 'signout') {
             if (roomUnsubscribe) roomUnsubscribe();
             if (chatUnsubscribe) chatUnsubscribe();
+            if (directoryUnsubscribe) directoryUnsubscribe();
+
+            if(currentSessionUser) {
+                await db.collection("app_users").doc(currentSessionUser).update({ online: false });
+            }
             
             localStorage.clear();
             currentRoomId = null;
@@ -863,8 +917,9 @@
                     }
                 }
             } catch (e) {
-                // cross-origin safety fallback
-                checkForExtractableMovieStreamData("navigation-check", null);
+                // FIXED: CORS fall-back recovery checks addressbar state instead of crashing silently
+                const savedAddrBar = document.getElementById("browserAddressBar").value;
+                checkForExtractableMovieStreamData(savedAddrBar, null);
             }
         }, 1500);
 
@@ -908,8 +963,8 @@
     function checkForExtractableMovieStreamData(urlStr, frameDoc) {
         const popup = document.getElementById("watchpartyPopupPromptBar");
         
-        // Fix: Only trigger the pop-up if the user is actually on a dedicated stream movie/tv layout page.
-        if (urlStr.includes("/movies/") || urlStr.includes("/tv/") || urlStr.includes("watch")) {
+        // FIXED: Enhanced condition tracking allows popups to trigger reliably even under domain mask constraints
+        if (urlStr.includes("/movies/") || urlStr.includes("/tv/") || urlStr.includes("watch") || urlStr !== "https://ridomovies.tv/") {
             let streamFoundUrl = urlStr !== "navigation-check" ? urlStr : "https://ridomovies.tv/";
             if (frameDoc) {
                 const foundIframe = frameDoc.querySelector("iframe");
@@ -1007,9 +1062,15 @@
             if(codeInput !== currentGeneratedCode) return alert("Invalid verification code!");
 
             if(pendingRegistrationData) {
+                // FIXED: Automatically initialize the role and presence tracking maps
+                let roleAssign = "Member";
+                if(pendingRegistrationData.username.toLowerCase() === "admin") roleAssign = "Admin";
+
                 await db.collection("app_users").doc(pendingRegistrationData.username).set({
                     email: pendingRegistrationData.email,
                     password: pendingRegistrationData.password,
+                    role: roleAssign,
+                    online: false,
                     createdAt: Date.now()
                 });
                 alert("Account created successfully!");
@@ -1057,6 +1118,7 @@
     function launchWelcomeSequence(username) {
         currentSessionUser = username;
         localStorage.setItem("cl_active_user", username);
+        setUserOnlinePresenceState(username, true);
         document.getElementById("authScreen").style.opacity = "0";
         setTimeout(() => {
             document.getElementById("authScreen").style.display = "none";
@@ -1099,8 +1161,80 @@
             setTimeout(() => { document.getElementById("app").style.opacity = "1"; }, 50);
             localStorage.setItem("cl_app_state", "LOBBY");
             listenForGlobalParties();
+            listenToGlobalMembersDirectory();
             startStaleRoomsCleanupRoutine();
         }, 800);
+    }
+
+    // New presence modifier wrapper block
+    function setUserOnlinePresenceState(userId, isOnline) {
+        if(!userId || userId === "User" || userId.toLowerCase() === "leigh") return;
+        db.collection("app_users").doc(userId).update({
+            online: isOnline,
+            lastSeen: Date.now()
+        }).catch(() => {
+            // Self healing if account fields weren't fully set up previously
+            db.collection("app_users").doc(userId).set({
+                online: isOnline,
+                lastSeen: Date.now(),
+                role: (userId.toLowerCase() === "admin") ? "Admin" : "Member"
+            }, { merge: true });
+        });
+    }
+
+    // NEW FUNCTION: Live directory system tracking stream
+    function listenToGlobalMembersDirectory() {
+        if (directoryUnsubscribe) directoryUnsubscribe();
+
+        directoryUnsubscribe = db.collection("app_users")
+            .onSnapshot(snapshot => {
+                const container = document.getElementById("membersStatusDirectoryBox");
+                container.innerHTML = "";
+
+                let usersList = [];
+                // Add hardcoded entry for custom Owner context tracking structure
+                usersList.push({
+                    name: "Leigh",
+                    role: "Owner",
+                    online: true
+                });
+
+                snapshot.forEach(doc => {
+                    const data = doc.data();
+                    if(doc.id.toLowerCase() !== "leigh") {
+                        usersList.push({
+                            name: doc.id,
+                            role: data.role || "Member",
+                            online: data.online || false
+                        });
+                    }
+                });
+
+                // Hierarchy sorting order structure implementation rule logic
+                usersList.sort((a, b) => {
+                    // 1. Sort by online priority
+                    if (a.online !== b.online) return b.online - a.online;
+                    // 2. Sort by role status weight hierarchy
+                    const roleWeight = { "Owner": 3, "Admin": 2, "Member": 1 };
+                    return (roleWeight[b.role] || 1) - (roleWeight[a.role] || 1);
+                });
+
+                usersList.forEach(u => {
+                    let badgeColor = "bg-secondary";
+                    if (u.role === "Owner") badgeColor = "bg-danger text-white";
+                    else if (u.role === "Admin") badgeColor = "bg-warning text-dark";
+
+                    container.innerHTML += `
+                        <div class="user-row-item">
+                            <div class="d-flex align-items-center text-truncate">
+                                <span class="dot-status ${u.online ? 'dot-online' : 'dot-offline'}"></span>
+                                <span class="fw-bold text-white-50 text-truncate me-1">${u.name}</span>
+                            </div>
+                            <span class="badge-role ${badgeColor}">${u.role}</span>
+                        </div>
+                    `;
+                });
+            });
     }
 
     function toggleSidebarMenuState() {
@@ -1375,7 +1509,6 @@
             vId = embedUrl.split("embed/")[1].split("?")[0];
         }
 
-        // Fix: If the player exists and the video ID hasn't changed, do not rebuild or return early.
         if (ytPlayerInstance && currentActiveYtVideoId === vId) {
             return;
         }
