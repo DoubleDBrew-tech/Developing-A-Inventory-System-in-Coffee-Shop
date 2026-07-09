@@ -361,6 +361,9 @@
             font-size: 0.9rem;
             font-weight: 600;
             color: #e5e7eb;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
         .chat-scroller-node {
             flex: 1;
@@ -374,6 +377,9 @@
             font-size: 0.85rem;
             line-height: 1.4;
             word-break: break-word;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
         .chat-author-tag {
             font-weight: 600;
@@ -489,14 +495,13 @@
             border: 1px solid #2d2d37;
             border-radius: 8px;
             padding: 10px;
-            max-height: 220px;
+            max-height: 280px;
             overflow-y: auto;
         }
         .user-row-item {
             display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 4px 6px;
+            flex-direction: column;
+            padding: 8px 6px;
             border-bottom: 1px solid #23232d;
             font-size: 0.82rem;
         }
@@ -716,7 +721,10 @@
                 </div>
 
                 <div class="chatbox-card-wrap">
-                    <div class="chat-header-title">💬 Live Room Chat</div>
+                    <div class="chat-header-title">
+                        <span>💬 Live Room Chat</span>
+                        <button id="clearChatBtn" class="btn btn-xs btn-outline-warning text-warning" style="display:none; font-size: 0.7rem; padding: 2px 6px;" onclick="clearLiveChatHistory()">Mute Chatbox</button>
+                    </div>
                     <div id="chatScroller" class="chat-scroller-node"></div>
                     <div class="chat-input-bar-group">
                         <div class="input-group input-group-sm">
@@ -761,8 +769,10 @@
     let roomUnsubscribe = null;
     let chatUnsubscribe = null;
     let directoryUnsubscribe = null; 
+    let currentRoomEnforcersUnsubscribe = null;
     let isInternalUpdate = false;
     let currentSessionUser = "User";
+    let currentUserRole = "Member"; 
     let isRoomHost = false; 
     let lastKnownHostState = { playing: false, currentTime: 0 };
 
@@ -794,20 +804,28 @@
         listenToEmbeddedBrowserNavigationCycles();
     });
 
-    // Automatically set offline status state if tab is abruptly killed
     window.addEventListener("beforeunload", () => {
         if(currentSessionUser && currentSessionUser !== "User") {
             db.collection("app_users").doc(currentSessionUser).update({ online: false });
         }
     });
 
-    function evaluateStoredSessionPersistenceState() {
+    async function evaluateStoredSessionPersistenceState() {
         const savedUser = localStorage.getItem("cl_active_user");
         const savedRoom = localStorage.getItem("cl_active_room_id");
         const appState = localStorage.getItem("cl_app_state");
 
         if (savedUser) {
             currentSessionUser = savedUser;
+            
+            // Sync user role state
+            if (currentSessionUser.toLowerCase() === "leigh") {
+                currentUserRole = "Owner";
+            } else {
+                const uDoc = await db.collection("app_users").doc(currentSessionUser).get();
+                currentUserRole = uDoc.exists ? (uDoc.data().role || "Member") : "Member";
+            }
+
             document.getElementById("authScreen").style.display = "none";
             document.getElementById("welcomeScreen").style.display = "none";
             document.getElementById("app").style.display = "grid";
@@ -817,6 +835,7 @@
             listenForGlobalParties();
             listenToGlobalMembersDirectory();
             startStaleRoomsCleanupRoutine();
+            listenToSelfSecurityBanishmentStream();
 
             if (appState === "THEATER" && savedRoom) {
                 connectToPartyRoom(savedRoom);
@@ -853,8 +872,9 @@
             if (roomUnsubscribe) roomUnsubscribe();
             if (chatUnsubscribe) chatUnsubscribe();
             if (directoryUnsubscribe) directoryUnsubscribe();
+            if (currentRoomEnforcersUnsubscribe) currentRoomEnforcersUnsubscribe();
 
-            if(currentSessionUser) {
+            if(currentSessionUser && currentSessionUser.toLowerCase() !== "leigh") {
                 await db.collection("app_users").doc(currentSessionUser).update({ online: false });
             }
             
@@ -864,6 +884,7 @@
             guestInteractionUnlocked = false;
             ytPlayerInstance = null;
             currentActiveYtVideoId = null;
+            currentUserRole = "Member";
 
             document.getElementById("app").style.display = "none";
             document.getElementById("app").style.opacity = "0";
@@ -917,7 +938,6 @@
                     }
                 }
             } catch (e) {
-                // FIXED: CORS fall-back recovery checks addressbar state instead of crashing silently
                 const savedAddrBar = document.getElementById("browserAddressBar").value;
                 checkForExtractableMovieStreamData(savedAddrBar, null);
             }
@@ -962,8 +982,6 @@
 
     function checkForExtractableMovieStreamData(urlStr, frameDoc) {
         const popup = document.getElementById("watchpartyPopupPromptBar");
-        
-        // FIXED: Enhanced condition tracking allows popups to trigger reliably even under domain mask constraints
         if (urlStr.includes("/movies/") || urlStr.includes("/tv/") || urlStr.includes("watch") || urlStr !== "https://ridomovies.tv/") {
             let streamFoundUrl = urlStr !== "navigation-check" ? urlStr : "https://ridomovies.tv/";
             if (frameDoc) {
@@ -985,8 +1003,8 @@
     function pushDiscoveredBrowserVideoToRoom() {
         if (!currentRoomId) return;
         
-        if (!isRoomHost) {
-            alert("Only the room host can change the playing movie. Sending the stream link to chat instead!");
+        if (!isRoomHost && currentUserRole === "Member") {
+            alert("Only room hosts or staff can sync movie links directly. Sending link to chat instead!");
             let linkToSend = externalTargetMovieStreamUrl ? externalTargetMovieStreamUrl : "https://ridomovies.tv/";
             sendChatMessageFallbackText(`Hey! Let's watch this movie link: ${linkToSend}`);
             document.getElementById("watchpartyPopupPromptBar").classList.remove("visible");
@@ -1031,15 +1049,22 @@
     async function handleAuthAction(actionType) {
         if(actionType === 'sendVerification') {
             const user = document.getElementById("regUser").value.trim();
-            const email = document.getElementById("regEmail").value.trim();
+            const email = document.getElementById("regEmail").value.trim().toLowerCase();
             const pass = document.getElementById("regPass").value.trim();
             const passConf = document.getElementById("regPassConf").value.trim();
 
             if(!user || !email || !pass || !passConf) return alert("Please fill out all fields.");
             if(user.length > 16) return alert("Username can't exceed 16 characters.");
+            if(user.toLowerCase() === "leigh") return alert("This username is a protected system entity key.");
             if(!/^[a-zA-Z0-9]+$/.test(user)) return alert("Username cannot contain spaces or special characters.");
-            if(!email.toLowerCase().endsWith("@gmail.com")) return alert("You must register with a valid email ending in @gmail.com");
+            if(!email.endsWith("@gmail.com")) return alert("You must register with a valid email ending in @gmail.com");
             if(pass !== passConf) return alert("Passwords do not match!");
+
+            // Check if Gmail is banned
+            const banCheck = await db.collection("banned_gmails").doc(email).get();
+            if (banCheck.exists) {
+                return alert("This email layout registration has been permanently banned from creating spaces.");
+            }
 
             const checkDoc = await db.collection("app_users").doc(user).get();
             if(checkDoc.exists) return alert("Username is already taken.");
@@ -1062,10 +1087,7 @@
             if(codeInput !== currentGeneratedCode) return alert("Invalid verification code!");
 
             if(pendingRegistrationData) {
-                // FIXED: Automatically initialize the role and presence tracking maps
                 let roleAssign = "Member";
-                if(pendingRegistrationData.username.toLowerCase() === "admin") roleAssign = "Admin";
-
                 await db.collection("app_users").doc(pendingRegistrationData.username).set({
                     email: pendingRegistrationData.email,
                     password: pendingRegistrationData.password,
@@ -1084,13 +1106,31 @@
             const pass = document.getElementById("loginPass").value.trim();
             
             if(user.toLowerCase() === "leigh") {
-                launchWelcomeSequence("Leigh");
+                if(pass === "leigh123") {
+                    currentUserRole = "Owner";
+                    launchWelcomeSequence("Leigh");
+                } else {
+                    alert("Incorrect credentials for Space Owner layout keys.");
+                }
                 return;
             }
 
             const userDoc = await db.collection("app_users").doc(user).get();
-            if(userDoc.exists && userDoc.data().password === pass) {
-                launchWelcomeSequence(user);
+            if(userDoc.exists) {
+                const userData = userDoc.data();
+                
+                // Final safety enforcement filter
+                const banCheck = await db.collection("banned_gmails").doc(userData.email).get();
+                if (banCheck.exists) {
+                    return alert("This account is mapped to a banned Gmail entity structure.");
+                }
+
+                if(userData.password === pass) {
+                    currentUserRole = userData.role || "Member";
+                    launchWelcomeSequence(user);
+                } else {
+                    alert("Incorrect username or password mapping.");
+                }
             } else {
                 alert("Incorrect username or password mapping.");
             }
@@ -1163,26 +1203,37 @@
             listenForGlobalParties();
             listenToGlobalMembersDirectory();
             startStaleRoomsCleanupRoutine();
+            listenToSelfSecurityBanishmentStream();
         }, 800);
     }
 
-    // New presence modifier wrapper block
     function setUserOnlinePresenceState(userId, isOnline) {
         if(!userId || userId === "User" || userId.toLowerCase() === "leigh") return;
         db.collection("app_users").doc(userId).update({
             online: isOnline,
             lastSeen: Date.now()
         }).catch(() => {
-            // Self healing if account fields weren't fully set up previously
             db.collection("app_users").doc(userId).set({
                 online: isOnline,
                 lastSeen: Date.now(),
-                role: (userId.toLowerCase() === "admin") ? "Admin" : "Member"
+                role: "Member"
             }, { merge: true });
         });
     }
 
-    // NEW FUNCTION: Live directory system tracking stream
+    // Active Banned Account Tracking Hook Loop
+    function listenToSelfSecurityBanishmentStream() {
+        if (currentSessionUser && currentSessionUser.toLowerCase() !== "leigh") {
+            db.collection("app_users").doc(currentSessionUser).onSnapshot(doc => {
+                if (!doc.exists && localStorage.getItem("cl_active_user")) {
+                    alert("Your account entry layout parameters have been cleared by the Space Owner.");
+                    executeExitActionRoute('signout');
+                }
+            });
+        }
+    }
+
+    // Live directory system tracking stream with advanced moderation controls
     function listenToGlobalMembersDirectory() {
         if (directoryUnsubscribe) directoryUnsubscribe();
 
@@ -1192,11 +1243,11 @@
                 container.innerHTML = "";
 
                 let usersList = [];
-                // Add hardcoded entry for custom Owner context tracking structure
                 usersList.push({
                     name: "Leigh",
                     role: "Owner",
-                    online: true
+                    online: true,
+                    email: "leigh@system.local"
                 });
 
                 snapshot.forEach(doc => {
@@ -1205,16 +1256,14 @@
                         usersList.push({
                             name: doc.id,
                             role: data.role || "Member",
-                            online: data.online || false
+                            online: data.online || false,
+                            email: data.email || ""
                         });
                     }
                 });
 
-                // Hierarchy sorting order structure implementation rule logic
                 usersList.sort((a, b) => {
-                    // 1. Sort by online priority
                     if (a.online !== b.online) return b.online - a.online;
-                    // 2. Sort by role status weight hierarchy
                     const roleWeight = { "Owner": 3, "Admin": 2, "Member": 1 };
                     return (roleWeight[b.role] || 1) - (roleWeight[a.role] || 1);
                 });
@@ -1224,17 +1273,82 @@
                     if (u.role === "Owner") badgeColor = "bg-danger text-white";
                     else if (u.role === "Admin") badgeColor = "bg-warning text-dark";
 
+                    let modControlsHTML = "";
+                    
+                    // Owner privileges layout
+                    if (currentUserRole === "Owner" && u.role !== "Owner") {
+                        modControlsHTML = `
+                            <div class="mt-1 d-flex gap-1 flex-wrap">
+                                <button class="btn btn-xs btn-outline-info py-0 px-1" style="font-size:0.65rem;" onclick="toggleUserAdminPrivilege('${u.name}', '${u.role}')">
+                                    ${u.role === 'Admin' ? 'Demote' : 'Promote Admin'}
+                                </button>
+                                <button class="btn btn-xs btn-outline-warning py-0 px-1" style="font-size:0.65rem;" onclick="kickUserFromCurrentActiveRoom('${u.name}')">Kick</button>
+                                <button class="btn btn-xs btn-outline-danger py-0 px-1" style="font-size:0.65rem;" onclick="banUserEmailPermanently('${u.name}', '${u.email}')">Ban Email</button>
+                                <button class="btn btn-xs btn-danger text-white py-0 px-1" style="font-size:0.65rem;" onclick="purgeUserAccountNode('${u.name}')">Delete Account</button>
+                            </div>
+                        `;
+                    } 
+                    // Admin privileges layout
+                    else if (currentUserRole === "Admin" && u.role === "Member") {
+                        modControlsHTML = `
+                            <div class="mt-1 d-flex gap-1">
+                                <button class="btn btn-xs btn-outline-warning py-0 px-1" style="font-size:0.65rem;" onclick="kickUserFromCurrentActiveRoom('${u.name}')">Kick</button>
+                            </div>
+                        `;
+                    }
+
                     container.innerHTML += `
                         <div class="user-row-item">
-                            <div class="d-flex align-items-center text-truncate">
-                                <span class="dot-status ${u.online ? 'dot-online' : 'dot-offline'}"></span>
-                                <span class="fw-bold text-white-50 text-truncate me-1">${u.name}</span>
+                            <div class="d-flex align-items-center justify-content-between">
+                                <div class="d-flex align-items-center text-truncate">
+                                    <span class="dot-status ${u.online ? 'dot-online' : 'dot-offline'}"></span>
+                                    <span class="fw-bold text-white-50 text-truncate me-1">${u.name}</span>
+                                </div>
+                                <span class="badge-role ${badgeColor}">${u.role}</span>
                             </div>
-                            <span class="badge-role ${badgeColor}">${u.role}</span>
+                            ${modControlsHTML}
                         </div>
                     `;
                 });
             });
+    }
+
+    /* --- Owner Mod Execution Logics --- */
+    async function toggleUserAdminPrivilege(username, currentRole) {
+        let nextRole = currentRole === "Admin" ? "Member" : "Admin";
+        if (confirm(`Change ${username}'s role structure assignment to ${nextRole}?`)) {
+            await db.collection("app_users").doc(username).update({ role: nextRole });
+            alert("Role settings successfully updated.");
+        }
+    }
+
+    async function kickUserFromCurrentActiveRoom(username) {
+        if (!currentRoomId) return alert("You must be inside an active room view frame to kick members.");
+        if (confirm(`Kick ${username} out of the ongoing session room?`)) {
+            await db.collection("rave_parties").doc(currentRoomId).collection("kicked_users").doc(username).set({
+                timestamp: Date.now()
+            });
+            alert(`${username} context ejection flag registered.`);
+        }
+    }
+
+    async function banUserEmailPermanently(username, email) {
+        if (!email) return alert("Could not fetch a valid Gmail mapping profile for target registry context.");
+        if (confirm(`Permanently ban ${username} and black-list Gmail address link [ ${email} ]?`)) {
+            await db.collection("banned_gmails").doc(email).set({
+                bannedAt: Date.now(),
+                associatedUser: username
+            });
+            await db.collection("app_users").doc(username).delete();
+            alert(`Gmail entity blacklisted. ${username} account layout deleted.`);
+        }
+    }
+
+    async function purgeUserAccountNode(username) {
+        if (confirm(`Are you sure you want to completely delete ${username}'s account entry mapping?`)) {
+            await db.collection("app_users").doc(username).delete();
+            alert("Account map swept from cloud repository database.");
+        }
     }
 
     function toggleSidebarMenuState() {
@@ -1276,11 +1390,14 @@
             const isCurrent = (party.id === currentRoomId);
             const isHost = (party.hostName === currentSessionUser);
             
+            // Allow Admins and Owners to terminate any ongoing watch party room
+            let canDelete = isHost || (currentUserRole === "Admin") || (currentUserRole === "Owner");
+
             gridContainer.innerHTML += `
                 <div class="party-card ${isCurrent ? 'active' : ''}">
                     <div class="d-flex justify-content-between align-items-start mb-2">
                         <div class="fw-bold text-truncate text-white fs-5">🎬 ${party.hostName}'s Room</div>
-                        ${isHost ? `<button class="btn btn-sm btn-dark text-danger border-0 p-0 px-2" title="Delete Party Room" onclick="deletePartyRoom('${party.id}')">❌ Delete</button>` : ''}
+                        ${canDelete ? `<button class="btn btn-sm btn-dark text-danger border-0 p-0 px-2" title="Delete Party Room" onclick="deletePartyRoom('${party.id}')">❌ Delete</button>` : ''}
                     </div>
                     <div class="small text-muted mb-3 text-truncate">Active Track: <b>${party.mediaTitle || 'Video Stream'}</b></div>
                     <button class="btn btn-sm w-100 ${isCurrent ? 'btn-outline-danger disabled' : 'btn-danger'}" 
@@ -1337,7 +1454,24 @@
         document.getElementById("syncStatusIndicator").className = "status-pill bg-danger text-white";
         document.getElementById("syncStatusIndicator").innerText = "● Live Shared Session Room";
 
+        // Show clear chat control trigger bar if Staff
+        if (currentUserRole === "Admin" || currentUserRole === "Owner") {
+            document.getElementById("clearChatBtn").style.display = "inline-block";
+        } else {
+            document.getElementById("clearChatBtn").style.display = "none";
+        }
+
         initializeChatroomChannel(roomId);
+
+        // Listen for internal room banishment signals
+        if (currentRoomEnforcersUnsubscribe) currentRoomEnforcersUnsubscribe();
+        currentRoomEnforcersUnsubscribe = db.collection("rave_parties").doc(roomId).collection("kicked_users").doc(currentSessionUser)
+            .onSnapshot(snap => {
+                if(snap.exists) {
+                    alert("You have been kicked out of this watch party room by room authorities.");
+                    exitCurrentParty();
+                }
+            });
 
         roomUnsubscribe = db.collection("rave_parties").doc(roomId).onSnapshot(doc => {
             if (!doc.exists) {
@@ -1350,6 +1484,8 @@
 
             document.getElementById("roomTitleHeader").innerText = `${data.hostName}'s Watch Space`;
             document.getElementById("roomSubHeader").innerText = `Syncing Target: ${data.mediaTitle}`;
+
+            let dynamicMediaControlAuthorized = isRoomHost || currentUserRole === "Admin" || currentUserRole === "Owner";
 
             if (data.mediaUrl.includes("youtube.com/embed/") || data.mediaUrl.includes("youtube.com/watch") || data.mediaUrl.includes("youtu.be/")) {
                 let cleanEmbedUrl = data.mediaUrl;
@@ -1366,7 +1502,7 @@
                 }
                 
                 renderYouTubeIframePlayer(cleanEmbedUrl);
-                document.getElementById("mediaControllerCard").style.display = isRoomHost ? "block" : "none";
+                document.getElementById("mediaControllerCard").style.display = dynamicMediaControlAuthorized ? "block" : "none";
                 
                 if (guestInteractionUnlocked || isRoomHost) {
                     if (ytPlayerInstance && typeof ytPlayerInstance.getPlayerState === 'function') {
@@ -1393,7 +1529,7 @@
                 ytPlayerInstance = null;
                 currentActiveYtVideoId = null;
                 const container = document.getElementById("playerParentFrameContainer");
-                document.getElementById("mediaControllerCard").style.display = isRoomHost ? "block" : "none";
+                document.getElementById("mediaControllerCard").style.display = dynamicMediaControlAuthorized ? "block" : "none";
                 
                 let overlayHTML = "";
                 if (!isRoomHost && !guestInteractionUnlocked) {
@@ -1427,7 +1563,7 @@
                     }
                     if(player) player.controls = true;
                 } else {
-                    document.getElementById("mediaControllerCard").style.display = "none";
+                    document.getElementById("mediaControllerCard").style.display = dynamicMediaControlAuthorized ? "block" : "none";
                     if(lockOverlay) {
                         lockOverlay.style.display = "flex";
                         if (!guestInteractionUnlocked) {
@@ -1444,7 +1580,7 @@
                             lockOverlay.innerHTML = "";
                         }
                     }
-                    if(player) player.controls = false; 
+                    if(player) player.controls = dynamicMediaControlAuthorized; 
                 }
 
                 if (document.getElementById("videoSource").src !== data.mediaUrl) {
@@ -1659,20 +1795,56 @@
             .orderBy("timestamp", "asc")
             .limitToLast(40)
             .onSnapshot(snapshot => {
-                snapshot.docChanges().forEach(change => {
-                    if (change.type === "added") {
-                        const msg = change.doc.data();
-                        const timeString = new Date(msg.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-                        
-                        const row = document.createElement("div");
-                        row.className = "chat-bubble-row";
-                        row.innerHTML = `<span class="chat-author-tag">${msg.author}:</span><span class="text-white-50">${msg.text}</span><span class="chat-time-tag">${timeString}</span>`;
-                        
-                        container.appendChild(row);
+                // Clear UI container on full muting/wipe anomalies
+                if (snapshot.size === 0) {
+                    container.innerHTML = `<div class="text-muted text-center small py-3 italic">Chat logs muted or wiped by room mods...</div>`;
+                    return;
+                }
+                
+                container.innerHTML = "";
+                snapshot.forEach(docSnap => {
+                    const msg = docSnap.data();
+                    const msgId = docSnap.id;
+                    const timeString = new Date(msg.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                    
+                    let row = document.createElement("div");
+                    row.className = "chat-bubble-row mb-1";
+                    
+                    let deleteMsgButton = "";
+                    if (currentUserRole === "Admin" || currentUserRole === "Owner" || isRoomHost) {
+                        deleteMsgButton = `<button class="btn btn-xs p-0 px-1 btn-dark text-muted" style="font-size:0.65rem;" onclick="deleteSingleChatMessage('${msgId}')">🗑️</button>`;
                     }
+
+                    row.innerHTML = `
+                        <div>
+                            <span class="chat-author-tag">${msg.author}:</span>
+                            <span class="text-white-50">${msg.text}</span>
+                            <span class="chat-time-tag">${timeString}</span>
+                        </div>
+                        ${deleteMsgButton}
+                    `;
+                    container.appendChild(row);
                 });
                 container.scrollTop = container.scrollHeight;
             });
+    }
+
+    async function deleteSingleChatMessage(msgId) {
+        if (currentRoomId) {
+            await db.collection("rave_parties").doc(currentRoomId).collection("chat_logs").doc(msgId).delete();
+        }
+    }
+
+    async function clearLiveChatHistory() {
+        if (!currentRoomId) return;
+        if (confirm("Mute and completely wipe current live conversation histories?")) {
+            const batch = db.batch();
+            const logs = await db.collection("rave_parties").doc(currentRoomId).collection("chat_logs").get();
+            logs.forEach(doc => {
+                batch.delete(doc.ref);
+            });
+            await batch.commit();
+        }
     }
 
     async function sendChatMessage() {
@@ -1691,6 +1863,7 @@
     function exitCurrentParty() {
         if (roomUnsubscribe) roomUnsubscribe();
         if (chatUnsubscribe) chatUnsubscribe();
+        if (currentRoomEnforcersUnsubscribe) currentRoomEnforcersUnsubscribe();
         
         const appContainer = document.getElementById("app");
         appContainer.classList.remove("sidebar-hidden"); 
@@ -1724,7 +1897,7 @@
     }
 
     function handleForcedDisconnection() {
-        alert("The session room was dissolved or closed by the host.");
+        alert("The session room was dissolved or closed by an administrator.");
         exitCurrentParty();
     }
 
@@ -1747,7 +1920,7 @@
     }
 
     function updateRoomMedia() {
-        if(!currentRoomId || !isRoomHost) return;
+        if(!currentRoomId) return;
         const rawUrl = document.getElementById("targetMediaUrl").value.trim();
         if (!rawUrl) return;
 
@@ -1774,7 +1947,7 @@
             mediaUrl: processedUrl,
             mediaTitle: finalTitle,
             currentTime: 0,
-            playing: isRoomHost,
+            playing: true,
             lastUpdated: Date.now()
         });
         document.getElementById("targetMediaUrl").value = "";
