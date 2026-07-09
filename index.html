@@ -801,7 +801,6 @@
         document.getElementById("lobbyExplorerView").style.display = "none";
         
         const frame = document.getElementById("browserIframeNode");
-        // Use a a secure embed format variant loop or direct initialization to prevent frame-blocking issues
         frame.src = "https://www.youtube.com/embed/?listType=search&autoplay=1";
         document.getElementById("browserAddressBar").value = "https://www.youtube.com";
         document.getElementById("embeddedBrowserView").style.display = "block";
@@ -829,9 +828,7 @@
                         checkForExtractableYouTubeVideoId(currentUrl);
                     }
                 }
-            } catch (e) {
-                // Heuristic address mapping safety bypass
-            }
+            } catch (e) { }
         }, 1200);
 
         window.addEventListener('message', (event) => {
@@ -940,7 +937,6 @@
                     toggleAuthViews('verify');
                 }, function(error) {
                     alert("EmailJS Request Error Encountered.");
-                    toggleAuthViews('verify');
                 });
         }
         else if(actionType === 'completeRegistration') {
@@ -985,7 +981,7 @@
             const userData = userDoc.data();
             const recoverParams = { to_email: userData.email, password: userData.password };
 
-            emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_VERIFY_TEMPLATE_ID, recoverParams)
+            emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_RECOVER_TEMPLATE_ID, recoverParams)
                 .then(function() {
                     alert(`Your password has been emailed.`);
                     toggleAuthViews('login');
