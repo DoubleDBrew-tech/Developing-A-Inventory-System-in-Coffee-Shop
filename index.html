@@ -247,6 +247,24 @@
             box-shadow: 0 0 10px rgba(255, 0, 0, 0.2);
         }
 
+        .yt-cool-text {
+            font-family: 'Poppins', sans-serif;
+            font-weight: 700;
+            font-size: 1.15rem;
+            letter-spacing: -0.5px;
+            color: #ffffff;
+            text-transform: capitalize;
+        }
+
+        .yt-cool-text span {
+            color: #ff0000;
+            background: #ffffff;
+            padding: 1px 6px;
+            border-radius: 4px;
+            margin-left: 2px;
+            font-weight: 800;
+        }
+
         .party-card {
             background: #25252e;
             border: 1px solid #333342;
@@ -586,7 +604,7 @@
             <div class="section-title">Streaming Sources</div>
             
             <div class="youtube-btn-card mb-2" onclick="switchToEmbeddedBrowserView()">
-                <img src="https://upload.wikimedia.org/wikipedia/commons/e/ef/Youtube_logo.svg" alt="YouTube Logo" style="height:20px;">
+                <div class="yt-cool-text">You<span>Tube</span></div>
             </div>
 
             <a href="https://drive.google.com/" target="_blank" class="drive-btn mb-3">
@@ -801,7 +819,7 @@
         document.getElementById("lobbyExplorerView").style.display = "none";
         
         const frame = document.getElementById("browserIframeNode");
-        frame.src = "https://www.youtube.com/embed/?listType=search&autoplay=1";
+        frame.src = "https://www.youtube.com/embed?rel=0";
         document.getElementById("browserAddressBar").value = "https://www.youtube.com";
         document.getElementById("embeddedBrowserView").style.display = "block";
     }
@@ -813,7 +831,7 @@
 
     function refreshBrowserFrameNode() {
         const frame = document.getElementById("browserIframeNode");
-        frame.src = "https://www.youtube.com/embed/?listType=search&autoplay=1"; 
+        frame.src = "https://www.youtube.com/embed?rel=0"; 
         document.getElementById("browserAddressBar").value = "https://www.youtube.com";
     }
 
