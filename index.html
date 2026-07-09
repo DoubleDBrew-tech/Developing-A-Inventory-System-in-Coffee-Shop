@@ -619,7 +619,7 @@
             <div class="browser-window-wrapper">
                 <div class="browser-navbar-control">
                     <button class="btn btn-sm btn-outline-light px-3" onclick="returnToTheaterLayoutView()">◀ Return to Room Player</button>
-                    <input type="text" id="browserAddressBar" class="form-control form-control-sm bg-dark text-white border-secondary" value="https://m.youtube.com" readonly>
+                    <input type="text" id="browserAddressBar" class="form-control form-control-sm bg-dark text-white border-secondary" value="https://www.youtube.com" readonly>
                     <button class="btn btn-sm btn-danger px-3" onclick="refreshBrowserFrameNode()">🔄 Refresh</button>
                 </div>
                 <iframe id="browserIframeNode" src="" class="browser-view-iframe" allow="autoplay; encrypted-media; fullscreen"></iframe>
@@ -644,7 +644,7 @@
                     <div class="card bg-dark border-secondary p-3" id="mediaControllerCard" style="display: none;">
                         <label class="form-label small text-muted fw-bold">Update Active Room Media Target URL</label>
                         <div class="input-group">
-                            <input type="text" id="targetMediaUrl" class="form-control bg-secondary text-white border-0" placeholder="Paste your direct video link or Google Drive URL stream link...">
+                            <input type="text" id="targetMediaUrl" class="form-control bg-secondary text-white border-0" placeholder="Paste your direct video link, YouTube Watch Link, or Google Drive Link...">
                             <button class="btn btn-danger" onclick="updateRoomMedia()">Load Target</button>
                         </div>
                     </div>
@@ -801,9 +801,9 @@
         document.getElementById("lobbyExplorerView").style.display = "none";
         
         const frame = document.getElementById("browserIframeNode");
-        if (!frame.src || frame.src === "about:blank") {
-            frame.src = "https://m.youtube.com";
-        }
+        // Use a secure embed format variant loop or direct initialization to prevent frame-blocking issues
+        frame.src = "https://www.youtube.com/embed/?listType=search&autoplay=1";
+        document.getElementById("browserAddressBar").value = "https://www.youtube.com";
         document.getElementById("embeddedBrowserView").style.display = "block";
     }
 
@@ -814,7 +814,8 @@
 
     function refreshBrowserFrameNode() {
         const frame = document.getElementById("browserIframeNode");
-        frame.src = "https://m.youtube.com"; 
+        frame.src = "https://www.youtube.com/embed/?listType=search&autoplay=1"; 
+        document.getElementById("browserAddressBar").value = "https://www.youtube.com";
     }
 
     function listenToEmbeddedBrowserNavigationCycles() {
@@ -823,11 +824,13 @@
             try {
                 if (frame && frame.contentWindow) {
                     const currentUrl = frame.contentWindow.location.href;
-                    document.getElementById("browserAddressBar").value = currentUrl;
-                    checkForExtractableYouTubeVideoId(currentUrl);
+                    if(currentUrl && currentUrl !== "about:blank") {
+                        document.getElementById("browserAddressBar").value = currentUrl;
+                        checkForExtractableYouTubeVideoId(currentUrl);
+                    }
                 }
             } catch (e) {
-                // Heuristic backup check parsing messages
+                // Heuristic address mapping safety bypass
             }
         }, 1200);
 
@@ -856,7 +859,6 @@
             activeDiscoveredBrowserVideoId = vId.substring(0, 11);
             popup.classList.add("visible");
         } else {
-            // Fallback for general mobile youtube watch paths
             const match = urlStr.match(/(?:watch\?v=|embed\/|shorts\/|youtu.be\/)([a-zA-Z0-9_-]{11})/);
             if (match && match[1]) {
                 activeDiscoveredBrowserVideoId = match[1];
@@ -871,8 +873,8 @@
         if (!currentRoomId || !activeDiscoveredBrowserVideoId) return;
         
         if (!isRoomHost) {
-            alert("Only the room host can push new video files to sync. Chatting the link to your host instead!");
-            sendChatMessageFallbackText(`Hey! Check out this video link: https://www.youtube.com/watch?v=${activeDiscoveredBrowserVideoId}`);
+            alert("Only the room host can push new videos to sync. Sending the track link to chat instead!");
+            sendChatMessageFallbackText(`Hey! Let's watch this: https://www.youtube.com/watch?v=${activeDiscoveredBrowserVideoId}`);
             document.getElementById("watchpartyPopupPromptBar").classList.remove("visible");
             return;
         }
@@ -1156,8 +1158,21 @@
             document.getElementById("roomTitleHeader").innerText = `${data.hostName}'s Watch Space`;
             document.getElementById("roomSubHeader").innerText = `Syncing Target: ${data.mediaTitle}`;
 
-            if (data.mediaUrl.includes("youtube.com/embed/")) {
-                renderYouTubeIframePlayer(data.mediaUrl);
+            if (data.mediaUrl.includes("youtube.com/embed/") || data.mediaUrl.includes("youtube.com/watch") || data.mediaUrl.includes("youtu.be/")) {
+                let cleanEmbedUrl = data.mediaUrl;
+                if (!data.mediaUrl.includes("embed/")) {
+                    let extractedId = "";
+                    if (data.mediaUrl.includes("v=")) {
+                        extractedId = data.mediaUrl.split("v=")[1].split("&")[0];
+                    } else if (data.mediaUrl.includes("youtu.be/")) {
+                        extractedId = data.mediaUrl.split("youtu.be/")[1].split("?")[0];
+                    }
+                    if (extractedId) {
+                        cleanEmbedUrl = `https://www.youtube.com/embed/${extractedId}?autoplay=1&enablejsapi=1`;
+                    }
+                }
+                
+                renderYouTubeIframePlayer(cleanEmbedUrl);
                 document.getElementById("mediaControllerCard").style.display = isRoomHost ? "block" : "none";
                 
                 if (guestInteractionUnlocked || isRoomHost) {
@@ -1515,16 +1530,29 @@
         if (!rawUrl) return;
 
         let processedUrl = rawUrl;
+        let finalTitle = "Custom Media File Stream";
+
         if (rawUrl.includes("drive.google.com/file/d/")) {
             const fileId = rawUrl.split("/file/d/")[1].split("/")[0];
             processedUrl = `https://docs.google.com/uc?export=download&id=${fileId}`;
+        } else if (rawUrl.includes("youtube.com/") || rawUrl.includes("youtu.be/")) {
+            finalTitle = "YouTube Watchparty Stream";
+            let vId = "";
+            if (rawUrl.includes("v=")) {
+                vId = rawUrl.split("v=")[1].split("&")[0];
+            } else if (rawUrl.includes("youtu.be/")) {
+                vId = rawUrl.split("youtu.be/")[1].split("?")[0];
+            }
+            if (vId) {
+                processedUrl = `https://www.youtube.com/embed/${vId}?autoplay=1&enablejsapi=1`;
+            }
         }
 
         db.collection("rave_parties").doc(currentRoomId).update({
             mediaUrl: processedUrl,
-            mediaTitle: "Custom Media File Stream",
+            mediaTitle: finalTitle,
             currentTime: 0,
-            playing: false,
+            playing: isRoomHost,
             lastUpdated: Date.now()
         });
         document.getElementById("targetMediaUrl").value = "";
