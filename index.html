@@ -732,6 +732,7 @@
 
     let guestInteractionUnlocked = false;
     let ytPlayerInstance = null; 
+    let currentActiveYtVideoId = null;
     let ytApiReady = false;
     let activeDiscoveredBrowserVideoId = null;
     let externalTargetMovieStreamUrl = null; 
@@ -808,6 +809,7 @@
             isRoomHost = false;
             guestInteractionUnlocked = false;
             ytPlayerInstance = null;
+            currentActiveYtVideoId = null;
 
             document.getElementById("app").style.display = "none";
             document.getElementById("app").style.opacity = "0";
@@ -861,8 +863,8 @@
                     }
                 }
             } catch (e) {
-                // If blocked by cross-origin, monitor iframe attributes or fallback to standard document load checks
-                checkForExtractableMovieStreamData("watch", null);
+                // cross-origin safety fallback
+                checkForExtractableMovieStreamData("navigation-check", null);
             }
         }, 1500);
 
@@ -906,8 +908,9 @@
     function checkForExtractableMovieStreamData(urlStr, frameDoc) {
         const popup = document.getElementById("watchpartyPopupPromptBar");
         
-        if (urlStr.includes("/movies/") || urlStr.includes("/tv/") || urlStr.includes("watch") || activeBrowserContextMode === "ridomovies") {
-            let streamFoundUrl = "https://ridomovies.tv/";
+        // Fix: Only trigger the pop-up if the user is actually on a dedicated stream movie/tv layout page.
+        if (urlStr.includes("/movies/") || urlStr.includes("/tv/") || urlStr.includes("watch")) {
+            let streamFoundUrl = urlStr !== "navigation-check" ? urlStr : "https://ridomovies.tv/";
             if (frameDoc) {
                 const foundIframe = frameDoc.querySelector("iframe");
                 if (foundIframe && foundIframe.src) {
@@ -1254,6 +1257,7 @@
                 }
             } else if (data.mediaUrl.includes("ridomovies.tv") || data.mediaUrl.includes("closeload") || data.mediaUrl.includes("vemov") || data.mediaUrl.includes("iframe")) {
                 ytPlayerInstance = null;
+                currentActiveYtVideoId = null;
                 const container = document.getElementById("playerParentFrameContainer");
                 document.getElementById("mediaControllerCard").style.display = isRoomHost ? "block" : "none";
                 
@@ -1276,6 +1280,7 @@
                 }
             } else {
                 ytPlayerInstance = null; 
+                currentActiveYtVideoId = null;
                 restoreNativeVideoPlayerLayout();
                 
                 const lockOverlay = document.getElementById("guestLockOverlay");
@@ -1365,8 +1370,18 @@
     }
 
     function renderYouTubeIframePlayer(embedUrl) {
+        let vId = "dQw4w9WgXcQ"; 
+        if(embedUrl.includes("embed/")) {
+            vId = embedUrl.split("embed/")[1].split("?")[0];
+        }
+
+        // Fix: If the player exists and the video ID hasn't changed, do not rebuild or return early.
+        if (ytPlayerInstance && currentActiveYtVideoId === vId) {
+            return;
+        }
+
+        currentActiveYtVideoId = vId;
         const container = document.getElementById("playerParentFrameContainer");
-        if (container.querySelector("iframe") && !container.querySelector(".rido-iframe-player")) return; 
 
         let overlayHTML = "";
         if (!isRoomHost && !guestInteractionUnlocked) {
@@ -1377,11 +1392,6 @@
                 </div>`;
         } else {
             overlayHTML = `<div id="guestLockOverlay" class="guest-lock-overlay" style="display: ${isRoomHost ? 'none' : 'block'}; background: rgba(0,0,0,0);"></div>`;
-        }
-
-        let vId = "dQw4w9WgXcQ"; 
-        if(embedUrl.includes("embed/")) {
-            vId = embedUrl.split("embed/")[1].split("?")[0];
         }
 
         container.innerHTML = `
@@ -1559,6 +1569,7 @@
         isRoomHost = false;
         guestInteractionUnlocked = false;
         ytPlayerInstance = null;
+        currentActiveYtVideoId = null;
         localStorage.removeItem("cl_active_room_id");
         localStorage.setItem("cl_app_state", "LOBBY");
 
