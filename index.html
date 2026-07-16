@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Our Special Space</title>
+    <title>Carlo and Leigh WatchParty</title>
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
     
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -156,6 +156,7 @@
             justify-content: center;
             align-items: center;
             text-align: center;
+            overflow: hidden;
         }
 
         .love-title-pulse {
@@ -163,13 +164,37 @@
             font-size: 6rem;
             color: #ff4b72;
             text-shadow: 0 0 25px rgba(255, 75, 114, 0.9);
-            animation: deepHeartbeat 1.5s infinite alternate;
             margin-bottom: 30px;
+            transform: translateY(-100px);
+            opacity: 0;
+            animation: dropInTitle 1s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
         }
 
-        @keyframes deepHeartbeat {
-            0% { transform: scale(0.95); text-shadow: 0 0 15px rgba(255, 75, 114, 0.6); }
-            100% { transform: scale(1.05); text-shadow: 0 0 35px rgba(255, 75, 114, 1); }
+        @keyframes dropInTitle {
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        /* Falling Heart Elements */
+        .falling-heart {
+            position: absolute;
+            top: -50px;
+            font-family: 'Caveat', cursive;
+            color: #ff7597;
+            font-weight: bold;
+            text-shadow: 0 0 10px rgba(255, 75, 114, 0.6);
+            pointer-events: none;
+            z-index: 21001;
+            animation: fallAnimation linear forwards;
+        }
+
+        @keyframes fallAnimation {
+            to {
+                transform: translateY(110vh) rotate(360deg);
+                opacity: 0;
+            }
         }
 
         /* --- Romantic Admin Welcome Panel --- */
@@ -599,6 +624,50 @@
             gap: 10px;
             margin-bottom: 15px;
         }
+
+        /* --- Sleek Source Font buttons (Rido style) --- */
+        .source-link-btn {
+            background: transparent;
+            border: none;
+            color: #ffffff;
+            font-family: 'Poppins', sans-serif;
+            font-weight: 700;
+            font-size: 1.15rem;
+            letter-spacing: -0.5px;
+            padding: 8px 16px;
+            transition: all 0.2s ease;
+            cursor: pointer;
+        }
+        .source-link-btn:hover {
+            color: var(--primary-pink);
+            text-shadow: 0 0 8px rgba(255, 75, 114, 0.5);
+        }
+        .source-link-btn span {
+            color: var(--primary-pink);
+            background: rgba(255, 75, 114, 0.15);
+            padding: 1px 6px;
+            border-radius: 4px;
+            margin-left: 2px;
+            font-weight: 800;
+            border: 1px solid var(--primary-pink);
+        }
+
+        /* --- Gate overlay & YT Pop-up Prompt styling --- */
+        .sanctuary-gate-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #000;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            padding: 20px;
+            z-index: 8;
+        }
     </style>
 </head>
 <body>
@@ -698,11 +767,9 @@
     <button class="btn btn-proceed" onclick="enterApp()">Proceed to WatchParty</button>
 </div>
 
-<!-- --- Welcoming Interstitial Page for ILabLeigh Room --- -->
+<!-- --- Welcoming Interstitial Page with Animation --- -->
 <div id="sanctuaryWelcomingOverlay">
     <h1 class="love-title-pulse">I Love You Leigh</h1>
-    <p class="text-muted-50 mb-4 fs-5">Welcome to our safe, private space.</p>
-    <button class="btn btn-proceed px-5 py-3 fs-4" onclick="proceedToSanctuaryActualRoom()">Enter Our Sanctuary</button>
 </div>
 
 <!-- --- Romantic Admin Sanctuary View Block --- -->
@@ -716,24 +783,37 @@
         <div class="row g-4">
             <!-- Left Side: Streaming & Video Call -->
             <div class="col-lg-8">
-                <!-- Direct Private Channels (Tabs) -->
+                <!-- Direct Private Channels (Sleek Buttons) -->
                 <div class="card bg-dark border-secondary p-3 mb-4">
-                    <h5 class="text-white mb-3">🎬 Select Stream Channel</h5>
-                    <div class="d-flex gap-2">
-                        <button class="btn btn-danger flex-fill fw-bold" onclick="setSanctuarySource('netflix')">🍿 Netflix</button>
-                        <button class="btn btn-primary flex-fill fw-bold" onclick="setSanctuarySource('youtube')">📺 YouTube</button>
-                        <button class="btn btn-warning text-dark flex-fill fw-bold" onclick="setSanctuarySource('prime')">🚀 PrimeTV</button>
+                    <h5 class="text-white mb-3 text-center">🎬 Select Stream Channel</h5>
+                    <div class="d-flex justify-content-center gap-4">
+                        <button class="source-link-btn" onclick="setSanctuarySource('netflix')">Net<span>flix</span></button>
+                        <button class="source-link-btn" onclick="setSanctuarySource('youtube')">You<span>Tube</span></button>
+                        <button class="source-link-btn" onclick="setSanctuarySource('prime')">Prime<span>TV</span></button>
                     </div>
                 </div>
 
                 <!-- Live Stream Display Frame -->
                 <div class="video-container mb-4" id="sanctuaryVideoBox" style="background:#000; border: 2px solid #ff4b72;">
-                    <div id="netflixRaveGate" class="w-100 h-100 d-flex flex-column justify-content-center align-items-center bg-black text-center p-3" style="display:none;">
-                        <h4 class="text-white mb-2">Netflix Sync Account Required</h4>
-                        <p class="text-muted small max-width-400">Both users must toggle connected Netflix state to launch this shared theater frame.</p>
-                        <button class="btn btn-sm btn-outline-danger" onclick="toggleNetflixAuthConnectionState()">Link Netflix Session Account</button>
+                    <!-- Gate Prompt overlay telling users to select sources -->
+                    <div id="sourceRequestGate" class="sanctuary-gate-overlay">
+                        <h4 class="text-white mb-2">Select a Stream Channel</h4>
+                        <p class="text-muted small">Please click one of our streaming sources above to play!</p>
                     </div>
-                    <iframe id="sanctuaryFrameNode" class="w-100 h-100 border-0" src="" allow="autoplay; fullscreen; encrypted-media"></iframe>
+
+                    <!-- YouTube Input Popup overlay -->
+                    <div id="youtubeLinkPromptGate" class="sanctuary-gate-overlay" style="display:none; background: rgba(18, 18, 22, 0.95);">
+                        <h5 class="text-white mb-3">Load YouTube Video Link</h5>
+                        <div class="w-100 px-4 mb-3" style="max-width: 500px;">
+                            <input type="text" id="sanctuaryYtUrlInput" class="form-control bg-dark text-white border-secondary py-2 text-center" placeholder="Paste YouTube Video URL here...">
+                        </div>
+                        <div>
+                            <button class="btn btn-danger px-4 me-2 fw-bold" onclick="loadSanctuaryYoutubeVideo()">Load Video</button>
+                            <button class="btn btn-outline-light px-4" onclick="cancelYtLinkInput()">Cancel</button>
+                        </div>
+                    </div>
+
+                    <iframe id="sanctuaryFrameNode" class="w-100 h-100 border-0" src="" allow="autoplay; fullscreen; encrypted-media" style="display:none;"></iframe>
                 </div>
 
                 <!-- Live Instagram/Messenger-style Video Call Panel -->
@@ -1368,15 +1448,45 @@
             return alert("Locked: The Private Sanctuary is strictly available only for Room Admins and Leigh.");
         }
 
-        // Show the interactive welcoming page overlay first
-        document.getElementById("sanctuaryWelcomingOverlay").style.display = "flex";
+        // Show the interactive welcoming page overlay
+        const welcomeOverlay = document.getElementById("sanctuaryWelcomingOverlay");
+        welcomeOverlay.style.display = "flex";
+
+        // Generate a shower of "i love you" drops over 3 seconds
+        const heartSpawner = setInterval(() => {
+            const heart = document.createElement("div");
+            heart.classList.add("falling-heart");
+            heart.innerText = "i love you";
+            
+            // Randomize position, size, and falling speed
+            heart.style.left = Math.random() * 100 + "vw";
+            heart.style.fontSize = (Math.random() * 1.5 + 1) + "rem";
+            heart.style.animationDuration = (Math.random() * 1.5 + 1.5) + "s";
+            
+            welcomeOverlay.appendChild(heart);
+
+            // Clean up elements
+            setTimeout(() => {
+                heart.remove();
+            }, 3000);
+        }, 80);
+
+        // Auto-transition to room after exactly 3 seconds
+        setTimeout(() => {
+            clearInterval(heartSpawner);
+            proceedToSanctuaryActualRoom();
+        }, 3000);
     }
 
     function proceedToSanctuaryActualRoom() {
         document.getElementById("sanctuaryWelcomingOverlay").style.display = "none";
         document.getElementById("adminRevealBlock").style.display = "flex";
         initializePrivateSanctuarySubscribers();
-        setSanctuarySource("youtube");
+        
+        // Reset player screen to select sources
+        document.getElementById("sourceRequestGate").style.display = "flex";
+        document.getElementById("sanctuaryFrameNode").style.display = "none";
+        document.getElementById("youtubeLinkPromptGate").style.display = "none";
     }
 
     function closeAdminPanel() {
@@ -1388,7 +1498,7 @@
         hangUpActiveCall();
     }
 
-    // --- Instagram / Messenger style Live Video Call WebRTC Emulation ---
+    // --- Instagram / Messenger style Live Video Call WebRTC Emulator ---
     async function toggleSanctuaryCameraFeed() {
         const camBtn = document.getElementById("sanctuaryCamBtn");
         
@@ -1398,7 +1508,7 @@
         }
 
         try {
-            // Ask for local camera and mic access like Messenger
+            // Ask for local camera and mic access
             localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
             
             const localVideo = document.getElementById("localVideoElement");
@@ -1413,7 +1523,7 @@
                 const remoteVideo = document.getElementById("remoteVideoElement");
                 const remotePlaceholder = document.getElementById("remotePlaceholder");
                 
-                // Mirroring stream to simulate active back-and-forth connection
+                // Mirroring stream to simulate active back-and-forth connection in video boxes
                 remoteVideo.srcObject = localStream;
                 remoteVideo.style.display = "block";
                 remotePlaceholder.style.display = "none";
@@ -2113,26 +2223,58 @@
         input.value = "";
     }
 
-    // --- Dynamic Netflix & Prime TV Interactive Routing Integration ---
+    // --- Dynamic Netflix, YouTube & Prime TV Interactive Routing Integration ---
     function setSanctuarySource(src) {
         sanctuaryActiveSource = src;
         const frame = document.getElementById("sanctuaryFrameNode");
-        const gate = document.getElementById("netflixRaveGate");
+        const requestGate = document.getElementById("sourceRequestGate");
+        const ytPromptGate = document.getElementById("youtubeLinkPromptGate");
 
-        // Set frame display rules
-        gate.style.display = "none";
-        frame.style.display = "block";
+        // Hide request prompt gate initially
+        requestGate.style.display = "none";
+        ytPromptGate.style.display = "none";
+        frame.style.display = "none";
 
         if (src === 'netflix') {
-            // Direct user to Netflix Landing login/signup portal
             frame.src = "https://www.netflix.com";
+            frame.style.display = "block";
         } else if (src === 'prime') {
-            // Direct user to Prime Video Landing login/signup portal
             frame.src = "https://www.primevideo.com";
+            frame.style.display = "block";
         } else if (src === 'youtube') {
-            // Standard shared Youtube Player
-            frame.src = "https://www.youtube.com/embed/dQw4w9WgXcQ?autoplay=1&mute=1";
+            // Show YouTube custom pop-up prompt input
+            ytPromptGate.style.display = "flex";
         }
+    }
+
+    function loadSanctuaryYoutubeVideo() {
+        const rawUrl = document.getElementById("sanctuaryYtUrlInput").value.trim();
+        if (!rawUrl) return alert("Please paste a valid YouTube URL.");
+
+        let vId = "";
+        if (rawUrl.includes("v=")) {
+            vId = rawUrl.split("v=")[1].split("&")[0];
+        } else if (rawUrl.includes("youtu.be/")) {
+            vId = rawUrl.split("youtu.be/")[1].split("?")[0];
+        } else if (rawUrl.includes("embed/")) {
+            vId = rawUrl.split("embed/")[1].split("?")[0];
+        }
+
+        if (vId) {
+            const frame = document.getElementById("sanctuaryFrameNode");
+            frame.src = `https://www.youtube.com/embed/${vId}?autoplay=1&enablejsapi=1`;
+            
+            document.getElementById("youtubeLinkPromptGate").style.display = "none";
+            frame.style.display = "block";
+            document.getElementById("sanctuaryYtUrlInput").value = "";
+        } else {
+            alert("Could not extract a valid YouTube video ID from that link.");
+        }
+    }
+
+    function cancelYtLinkInput() {
+        document.getElementById("youtubeLinkPromptGate").style.display = "none";
+        document.getElementById("sourceRequestGate").style.display = "flex";
     }
 
     function toggleNetflixAuthConnectionState() {
@@ -2141,17 +2283,13 @@
         
         if(isNetflixLinkedState) {
             alert("Netflix Sync Authorization state mapped. Active check passed.");
-            if(sanctuaryActiveSource === 'netflix') {
-                document.getElementById("netflixRaveGate").style.display = "none";
-                document.getElementById("sanctuaryFrameNode").style.display = "block";
-            }
         } else {
             alert("Netflix Sync credentials disconnected locally.");
         }
     }
 
+    // Aesthetic mixer feedback placeholder mapping
     function adjustVolumeMixerValues(val) {
-        // Aesthetic mixer feedback placeholder mapping
         console.log(`Mixer ratio balance updated to: ${val}`);
     }
 </script>
