@@ -787,11 +787,20 @@
                 <!-- Direct Private Channels (Sleek Buttons) -->
                 <div class="card bg-dark border-secondary p-3 mb-4">
                     <h5 class="text-white mb-3 text-center">🎬 Select Stream Channel</h5>
-                    <div class="d-flex justify-content-center gap-4 flex-wrap">
+                    <div class="d-flex justify-content-center gap-4 flex-wrap mb-3">
                         <button class="source-link-btn" onclick="setSanctuarySource('youtube')">You<span>Tube</span></button>
                         <button class="source-link-btn" onclick="setSanctuarySource('netflix')">Net<span>flix</span></button>
                         <button class="source-link-btn" onclick="setSanctuarySource('prime')">Prime<span>TV</span></button>
                         <button class="source-link-btn" onclick="setSanctuarySource('gdrive')">Google<span>Drive</span></button>
+                    </div>
+                    
+                    <!-- Integrated Google Drive Inner Sanctum Sync Bar -->
+                    <div class="bg-black p-2 rounded border border-secondary mx-auto w-100" style="max-width: 550px;">
+                        <div class="input-label-tag small mb-1 text-center">Stream Google Drive Video directly to Leigh Room:</div>
+                        <div class="input-group input-group-sm">
+                            <input type="text" id="sanctuaryGDriveUrlInput" class="form-control bg-dark text-white border-secondary" placeholder="Paste direct streaming Google Drive link...">
+                            <button class="btn btn-primary btn-sm fw-bold px-3" onclick="loadSanctuaryGDriveVideo()">Load & Autoplay</button>
+                        </div>
                     </div>
                 </div>
 
@@ -2421,6 +2430,37 @@
             promptTitle.innerText = "Load YouTube Video Link";
             ytPromptGate.style.display = "flex";
         }
+    }
+
+    // --- Inner Sanctum Private Google Drive Stream Resolution handler ---
+    async function loadSanctuaryGDriveVideo() {
+        const rawUrl = document.getElementById("sanctuaryGDriveUrlInput").value.trim();
+        if (!rawUrl) return alert("Please enter a valid Google Drive target link.");
+        if (!rawUrl.includes("drive.google.com")) {
+            return alert("Invalid domain setup. Make sure this is an official Google Drive layout link structure.");
+        }
+
+        let resolvedDirectUrl = rawUrl;
+        
+        // Auto-extract File ID structure from shared links to map target frame endpoints
+        if (rawUrl.includes("/file/d/")) {
+            const parts = rawUrl.split("/file/d/");
+            if (parts[1]) {
+                const fileId = parts[1].split("/")[0];
+                // Added &autoplay=1 into structural string layout to load up instant streaming execution
+                resolvedDirectUrl = `https://docs.google.com/uc?export=download&id=${fileId}&autoplay=1`;
+            }
+        }
+
+        await db.collection("sanctuary_media").doc("global_state").set({
+            activeUrl: resolvedDirectUrl,
+            source: "gdrive",
+            timestamp: Date.now()
+        });
+
+        document.getElementById("sourceRequestGate").style.display = "none";
+        document.getElementById("youtubeLinkPromptGate").style.display = "none";
+        document.getElementById("sanctuaryGDriveUrlInput").value = "";
     }
 
     async function loadSanctuaryYoutubeVideo() {
