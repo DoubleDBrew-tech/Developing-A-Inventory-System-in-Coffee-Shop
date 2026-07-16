@@ -788,6 +788,7 @@
                     <h5 class="text-white mb-3 text-center">🎬 Select Stream Channel</h5>
                     <div class="d-flex justify-content-center gap-4">
                         <button class="source-link-btn" onclick="setSanctuarySource('youtube')">You<span>Tube</span></button>
+                        <button class="source-link-btn" onclick="setSanctuarySource('netflix')">Net<span>flix</span></button>
                         <button class="source-link-btn" onclick="setSanctuarySource('prime')">Prime<span>TV</span></button>
                     </div>
                 </div>
@@ -800,7 +801,7 @@
                         <p class="text-muted small">Please click one of our streaming sources above to play!</p>
                     </div>
 
-                    <!-- YouTube/Prime Input Popup overlay -->
+                    <!-- YouTube Link Input Popup overlay -->
                     <div id="youtubeLinkPromptGate" class="sanctuary-gate-overlay" style="display:none; background: rgba(18, 18, 22, 0.95);">
                         <h5 class="text-white mb-3" id="sanctuaryPromptTitle">Load Video Link</h5>
                         <div class="w-100 px-4 mb-3" style="max-width: 500px;">
@@ -893,15 +894,6 @@
                 <h5 class="mb-0 fw-bold">Rave Watch Hub</h5>
             </div>
             <button id="exitPartyBtn" class="btn btn-sm btn-outline-danger" style="display: none;" onclick="openExitOptionsModal()">Exit Party</button>
-        </div>
-
-        <!-- Sync Account Connect Controls mimicking Rave -->
-        <div class="mb-3 p-2 rounded bg-black border border-secondary text-center">
-            <div class="form-check form-switch text-start mb-2">
-                <input class="form-check-input" type="checkbox" id="netflixConnectedCheck" onchange="toggleNetflixAuthConnectionState()">
-                <label class="form-check-label text-white small" for="netflixConnectedCheck">📺 Sync Netflix Account</label>
-            </div>
-            <div class="small text-muted" style="font-size:0.75rem;">Connected for sync authorization checks.</div>
         </div>
 
         <div id="cloudLibrarySection" style="display: none;">
@@ -1056,7 +1048,6 @@
 
     // --- Private Sanctuary State Variables ---
     let sanctuaryActiveSource = "youtube";
-    let isNetflixLinkedState = false;
     let sanctuaryChatUnsubscribe = null;
     let sanctuaryVideoUnsubscribe = null;
 
@@ -2262,20 +2253,27 @@
         input.value = "";
     }
 
-    // --- Dynamic YouTube & Prime TV Interactive Routing Integration ---
+    // --- Dynamic YouTube, Netflix, & Prime TV Interactive Routing Integration ---
     function setSanctuarySource(src) {
         sanctuaryActiveSource = src;
         const requestGate = document.getElementById("sourceRequestGate");
         const ytPromptGate = document.getElementById("youtubeLinkPromptGate");
         const promptTitle = document.getElementById("sanctuaryPromptTitle");
 
+        if (src === 'netflix') {
+            window.open("https://www.netflix.com", "_blank");
+            return;
+        }
+
+        if (src === 'prime') {
+            window.open("https://www.primevideo.com", "_blank");
+            return;
+        }
+
         requestGate.style.display = "none";
         document.getElementById("sanctuaryFrameNode").style.display = "none";
 
-        if (src === 'prime') {
-            promptTitle.innerText = "Load Prime TV Video / Stream Link";
-            ytPromptGate.style.display = "flex";
-        } else if (src === 'youtube') {
+        if (src === 'youtube') {
             promptTitle.innerText = "Load YouTube Video Link";
             ytPromptGate.style.display = "flex";
         }
@@ -2319,17 +2317,6 @@
     function cancelYtLinkInput() {
         document.getElementById("youtubeLinkPromptGate").style.display = "none";
         document.getElementById("sourceRequestGate").style.display = "flex";
-    }
-
-    function toggleNetflixAuthConnectionState() {
-        isNetflixLinkedState = !isNetflixLinkedState;
-        document.getElementById("netflixConnectedCheck").checked = isNetflixLinkedState;
-        
-        if(isNetflixLinkedState) {
-            alert("Netflix Sync Authorization state mapped. Active check passed.");
-        } else {
-            alert("Netflix Sync credentials disconnected locally.");
-        }
     }
 
     function adjustVolumeMixerValues(val) {
