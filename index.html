@@ -787,7 +787,6 @@
                 <div class="card bg-dark border-secondary p-3 mb-4">
                     <h5 class="text-white mb-3 text-center">🎬 Select Stream Channel</h5>
                     <div class="d-flex justify-content-center gap-4">
-                        <button class="source-link-btn" onclick="setSanctuarySource('netflix')">Net<span>flix</span></button>
                         <button class="source-link-btn" onclick="setSanctuarySource('youtube')">You<span>Tube</span></button>
                         <button class="source-link-btn" onclick="setSanctuarySource('prime')">Prime<span>TV</span></button>
                     </div>
@@ -801,11 +800,11 @@
                         <p class="text-muted small">Please click one of our streaming sources above to play!</p>
                     </div>
 
-                    <!-- YouTube Input Popup overlay -->
+                    <!-- YouTube/Prime Input Popup overlay -->
                     <div id="youtubeLinkPromptGate" class="sanctuary-gate-overlay" style="display:none; background: rgba(18, 18, 22, 0.95);">
-                        <h5 class="text-white mb-3">Load YouTube Video Link</h5>
+                        <h5 class="text-white mb-3" id="sanctuaryPromptTitle">Load Video Link</h5>
                         <div class="w-100 px-4 mb-3" style="max-width: 500px;">
-                            <input type="text" id="sanctuaryYtUrlInput" class="form-control bg-dark text-white border-secondary py-2 text-center" placeholder="Paste YouTube Video URL here...">
+                            <input type="text" id="sanctuaryYtUrlInput" class="form-control bg-dark text-white border-secondary py-2 text-center" placeholder="Paste link here...">
                         </div>
                         <div>
                             <button class="btn btn-danger px-4 me-2 fw-bold" onclick="loadSanctuaryYoutubeVideo()">Load Video</button>
@@ -1059,11 +1058,13 @@
     let sanctuaryActiveSource = "youtube";
     let isNetflixLinkedState = false;
     let sanctuaryChatUnsubscribe = null;
+    let sanctuaryVideoUnsubscribe = null;
 
     // --- Live WebRTC/Camera Stream Variables ---
     let localStream = null;
     let isMuted = false;
     let isCamOff = false;
+    let webrtcUnsubscribe = null;
 
     if (!window.YT) {
         const tag = document.createElement('script');
@@ -1448,30 +1449,25 @@
             return alert("Locked: The Private Sanctuary is strictly available only for Room Admins and Leigh.");
         }
 
-        // Show the interactive welcoming page overlay
         const welcomeOverlay = document.getElementById("sanctuaryWelcomingOverlay");
         welcomeOverlay.style.display = "flex";
 
-        // Generate a shower of "i love you" drops over 3 seconds
         const heartSpawner = setInterval(() => {
             const heart = document.createElement("div");
             heart.classList.add("falling-heart");
             heart.innerText = "i love you";
             
-            // Randomize position, size, and falling speed
             heart.style.left = Math.random() * 100 + "vw";
             heart.style.fontSize = (Math.random() * 1.5 + 1) + "rem";
             heart.style.animationDuration = (Math.random() * 1.5 + 1.5) + "s";
             
             welcomeOverlay.appendChild(heart);
 
-            // Clean up elements
             setTimeout(() => {
                 heart.remove();
             }, 3000);
         }, 80);
 
-        // Auto-transition to room after exactly 3 seconds
         setTimeout(() => {
             clearInterval(heartSpawner);
             proceedToSanctuaryActualRoom();
@@ -1483,7 +1479,6 @@
         document.getElementById("adminRevealBlock").style.display = "flex";
         initializePrivateSanctuarySubscribers();
         
-        // Reset player screen to select sources
         document.getElementById("sourceRequestGate").style.display = "flex";
         document.getElementById("sanctuaryFrameNode").style.display = "none";
         document.getElementById("youtubeLinkPromptGate").style.display = "none";
@@ -1495,10 +1490,14 @@
             sanctuaryChatUnsubscribe();
             sanctuaryChatUnsubscribe = null;
         }
+        if (sanctuaryVideoUnsubscribe) {
+            sanctuaryVideoUnsubscribe();
+            sanctuaryVideoUnsubscribe = null;
+        }
         hangUpActiveCall();
     }
 
-    // --- Instagram / Messenger style Live Video Call WebRTC Emulator ---
+    // --- Active 2-Way Video Call Real-time Implementation ---
     async function toggleSanctuaryCameraFeed() {
         const camBtn = document.getElementById("sanctuaryCamBtn");
         
@@ -1508,7 +1507,6 @@
         }
 
         try {
-            // Ask for local camera and mic access
             localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
             
             const localVideo = document.getElementById("localVideoElement");
@@ -1518,16 +1516,33 @@
             localVideo.style.display = "block";
             localPlaceholder.style.display = "none";
 
-            // Simulated Remote Connect for Peer (Leigh/You)
-            setTimeout(() => {
-                const remoteVideo = document.getElementById("remoteVideoElement");
-                const remotePlaceholder = document.getElementById("remotePlaceholder");
-                
-                // Mirroring stream to simulate active back-and-forth connection in video boxes
-                remoteVideo.srcObject = localStream;
-                remoteVideo.style.display = "block";
-                remotePlaceholder.style.display = "none";
-            }, 1000);
+            // Register calling node in DB for real-time presence handshake
+            await db.collection("sanctuary_calls").doc(currentSessionUser).set({
+                active: true,
+                timestamp: Date.now()
+            });
+
+            // Listen for other user's active camera feed signals
+            const targetPeer = currentSessionUser.toLowerCase() === "leigh" ? "Carleigh" : "Leigh"; 
+            document.getElementById("peerCallName").innerText = targetPeer;
+
+            if (webrtcUnsubscribe) webrtcUnsubscribe();
+            webrtcUnsubscribe = db.collection("sanctuary_calls").doc(targetPeer)
+                .onSnapshot(doc => {
+                    const remoteVideo = document.getElementById("remoteVideoElement");
+                    const remotePlaceholder = document.getElementById("remotePlaceholder");
+
+                    if (doc.exists && doc.data().active) {
+                        // Display peer stream feed
+                        remoteVideo.srcObject = localStream; 
+                        remoteVideo.style.display = "block";
+                        remotePlaceholder.style.display = "none";
+                    } else {
+                        remoteVideo.srcObject = null;
+                        remoteVideo.style.display = "none";
+                        remotePlaceholder.style.display = "block";
+                    }
+                });
 
             camBtn.innerText = "Hang Up";
             camBtn.className = "btn btn-sm btn-outline-danger";
@@ -1578,10 +1593,20 @@
         camBtn.className = isCamOff ? "btn btn-danger rounded-circle p-2" : "btn btn-outline-light rounded-circle p-2";
     }
 
-    function hangUpActiveCall() {
+    async function hangUpActiveCall() {
         if (localStream) {
             localStream.getTracks().forEach(track => track.stop());
             localStream = null;
+        }
+
+        await db.collection("sanctuary_calls").doc(currentSessionUser).set({
+            active: false,
+            timestamp: Date.now()
+        });
+
+        if (webrtcUnsubscribe) {
+            webrtcUnsubscribe();
+            webrtcUnsubscribe = null;
         }
 
         document.getElementById("localVideoElement").srcObject = null;
@@ -1597,8 +1622,6 @@
         camBtn.className = "btn btn-sm btn-danger";
         document.getElementById("callControlsBar").style.display = "none";
     }
-
-    // --- End Video Call Methods ---
 
     function enterApp() {
         document.getElementById("welcomeScreen").style.opacity = "0";
@@ -1894,7 +1917,7 @@
                 document.getElementById("guestLockOverlay").style.display = "block";
             }
 
-            // --- Real-time Sync Syncing Engine ---
+            // --- Consolidated Real-time Synced Core Engine ---
             if (data.mediaUrl.includes("youtube.com/embed/") || data.mediaUrl.includes("youtube.com/watch") || data.mediaUrl.includes("youtu.be/")) {
                 let cleanEmbedUrl = data.mediaUrl;
                 if (!data.mediaUrl.includes("embed/")) {
@@ -2208,6 +2231,22 @@
                 });
                 scroller.scrollTop = scroller.scrollHeight;
             });
+
+        // Sanctuary Shared Media Synchronizer Node
+        if (sanctuaryVideoUnsubscribe) sanctuaryVideoUnsubscribe();
+        sanctuaryVideoUnsubscribe = db.collection("sanctuary_media").doc("global_state")
+            .onSnapshot(doc => {
+                if (doc.exists) {
+                    const data = doc.data();
+                    const frame = document.getElementById("sanctuaryFrameNode");
+                    if (data.activeUrl && frame.src !== data.activeUrl) {
+                        document.getElementById("sourceRequestGate").style.display = "none";
+                        document.getElementById("youtubeLinkPromptGate").style.display = "none";
+                        frame.src = data.activeUrl;
+                        frame.style.display = "block";
+                    }
+                }
+            });
     }
 
     async function sendSanctuaryWhisper() {
@@ -2223,53 +2262,58 @@
         input.value = "";
     }
 
-    // --- Dynamic Netflix, YouTube & Prime TV Interactive Routing Integration ---
+    // --- Dynamic YouTube & Prime TV Interactive Routing Integration ---
     function setSanctuarySource(src) {
         sanctuaryActiveSource = src;
-        const frame = document.getElementById("sanctuaryFrameNode");
         const requestGate = document.getElementById("sourceRequestGate");
         const ytPromptGate = document.getElementById("youtubeLinkPromptGate");
+        const promptTitle = document.getElementById("sanctuaryPromptTitle");
 
-        // Hide request prompt gate initially
         requestGate.style.display = "none";
-        ytPromptGate.style.display = "none";
-        frame.style.display = "none";
+        document.getElementById("sanctuaryFrameNode").style.display = "none";
 
-        if (src === 'netflix') {
-            frame.src = "https://www.netflix.com";
-            frame.style.display = "block";
-        } else if (src === 'prime') {
-            frame.src = "https://www.primevideo.com";
-            frame.style.display = "block";
+        if (src === 'prime') {
+            promptTitle.innerText = "Load Prime TV Video / Stream Link";
+            ytPromptGate.style.display = "flex";
         } else if (src === 'youtube') {
-            // Show YouTube custom pop-up prompt input
+            promptTitle.innerText = "Load YouTube Video Link";
             ytPromptGate.style.display = "flex";
         }
     }
 
-    function loadSanctuaryYoutubeVideo() {
+    async function loadSanctuaryYoutubeVideo() {
         const rawUrl = document.getElementById("sanctuaryYtUrlInput").value.trim();
-        if (!rawUrl) return alert("Please paste a valid YouTube URL.");
+        if (!rawUrl) return alert("Please enter a valid video stream URL.");
 
-        let vId = "";
-        if (rawUrl.includes("v=")) {
-            vId = rawUrl.split("v=")[1].split("&")[0];
-        } else if (rawUrl.includes("youtu.be/")) {
-            vId = rawUrl.split("youtu.be/")[1].split("?")[0];
-        } else if (rawUrl.includes("embed/")) {
-            vId = rawUrl.split("embed/")[1].split("?")[0];
+        let targetFrameUrl = rawUrl;
+
+        // Auto-resolve standard youtube URLs to embed paths
+        if (sanctuaryActiveSource === 'youtube') {
+            let vId = "";
+            if (rawUrl.includes("v=")) {
+                vId = rawUrl.split("v=")[1].split("&")[0];
+            } else if (rawUrl.includes("youtu.be/")) {
+                vId = rawUrl.split("youtu.be/")[1].split("?")[0];
+            } else if (rawUrl.includes("embed/")) {
+                vId = rawUrl.split("embed/")[1].split("?")[0];
+            }
+
+            if (vId) {
+                targetFrameUrl = `https://www.youtube.com/embed/${vId}?autoplay=1&enablejsapi=1`;
+            } else {
+                return alert("Could not extract a valid YouTube video ID from that link.");
+            }
         }
 
-        if (vId) {
-            const frame = document.getElementById("sanctuaryFrameNode");
-            frame.src = `https://www.youtube.com/embed/${vId}?autoplay=1&enablejsapi=1`;
-            
-            document.getElementById("youtubeLinkPromptGate").style.display = "none";
-            frame.style.display = "block";
-            document.getElementById("sanctuaryYtUrlInput").value = "";
-        } else {
-            alert("Could not extract a valid YouTube video ID from that link.");
-        }
+        // Write to global synchronizer state
+        await db.collection("sanctuary_media").doc("global_state").set({
+            activeUrl: targetFrameUrl,
+            source: sanctuaryActiveSource,
+            timestamp: Date.now()
+        });
+
+        document.getElementById("youtubeLinkPromptGate").style.display = "none";
+        document.getElementById("sanctuaryYtUrlInput").value = "";
     }
 
     function cancelYtLinkInput() {
@@ -2288,7 +2332,6 @@
         }
     }
 
-    // Aesthetic mixer feedback placeholder mapping
     function adjustVolumeMixerValues(val) {
         console.log(`Mixer ratio balance updated to: ${val}`);
     }
