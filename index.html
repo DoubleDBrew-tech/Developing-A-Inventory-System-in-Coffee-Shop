@@ -786,10 +786,11 @@
                 <!-- Direct Private Channels (Sleek Buttons) -->
                 <div class="card bg-dark border-secondary p-3 mb-4">
                     <h5 class="text-white mb-3 text-center">🎬 Select Stream Channel</h5>
-                    <div class="d-flex justify-content-center gap-4">
+                    <div class="d-flex justify-content-center gap-4 flex-wrap">
                         <button class="source-link-btn" onclick="setSanctuarySource('youtube')">You<span>Tube</span></button>
                         <button class="source-link-btn" onclick="setSanctuarySource('netflix')">Net<span>flix</span></button>
                         <button class="source-link-btn" onclick="setSanctuarySource('prime')">Prime<span>TV</span></button>
+                        <button class="source-link-btn" onclick="setSanctuarySource('gdrive')">Google<span>Drive</span></button>
                     </div>
                 </div>
 
@@ -801,7 +802,7 @@
                         <p class="text-muted small">Please click one of our streaming sources above to play!</p>
                     </div>
 
-                    <!-- YouTube Link Input Popup overlay -->
+                    <!-- YouTube / Drive Link Input Popup overlay -->
                     <div id="youtubeLinkPromptGate" class="sanctuary-gate-overlay" style="display:none; background: rgba(18, 18, 22, 0.95);">
                         <h5 class="text-white mb-3" id="sanctuaryPromptTitle">Load Video Link</h5>
                         <div class="w-100 px-4 mb-3" style="max-width: 500px;">
@@ -961,6 +962,7 @@
         <div id="activeTheaterView" style="display: none;">
             <div class="theater-split-container">
                 <div>
+                    <!-- Player Box -->
                     <div class="video-container mb-3" id="playerParentFrameContainer">
                         <div id="guestLockOverlay" class="guest-lock-overlay"></div>
                         <video id="sharedPlayer" controls playsinline webkit-playsinline disablePictureInPicture>
@@ -968,11 +970,33 @@
                         </video>
                     </div>
 
+                    <!-- SYNCHRONIZED SKIP & PLAY CONTROLS -->
+                    <div class="card bg-dark border-secondary p-3 mb-3 d-flex flex-row justify-content-center gap-3 align-items-center">
+                        <button class="btn btn-outline-danger" onclick="triggerSharedSkip(-10)">⏪ Skip -10s</button>
+                        <button class="btn btn-danger px-4 py-2 fw-bold" id="sharedPlayPauseBtn" onclick="triggerSharedPlayPause()">Play / Pause 🎬</button>
+                        <button class="btn btn-outline-danger" onclick="triggerSharedSkip(10)">Skip +10s ⏩</button>
+                    </div>
+
                     <div class="card bg-dark border-secondary p-3" id="mediaControllerCard" style="display: none;">
                         <label class="form-label small text-muted fw-bold">Update Active Room Media Target URL</label>
-                        <div class="input-group">
-                            <input type="text" id="targetMediaUrl" class="form-control bg-secondary text-white border-0" placeholder="Paste direct .m3u8 link, standard video, YouTube link, or Drive link...">
+                        <div class="input-group mb-2">
+                            <input type="text" id="targetMediaUrl" class="form-control bg-secondary text-white border-0" placeholder="Paste direct .m3u8 link, direct video link, or YouTube link...">
                             <button class="btn btn-danger" onclick="updateRoomMedia()">Load Target</button>
+                        </div>
+                        <div class="text-end">
+                            <button class="btn btn-sm btn-link text-decoration-none text-muted p-0" onclick="toggleDriveGuide()">ℹ️ How to stream Google Drive movies</button>
+                        </div>
+                        
+                        <!-- Drive Link Conversion Help Panel -->
+                        <div id="driveGuideBox" class="bg-black border border-secondary p-3 rounded mt-2 small text-white-50" style="display: none;">
+                            <b class="text-white">To Stream Google Drive Videos Seamlessly:</b>
+                            <ol class="mt-2 mb-0 ps-3">
+                                <li>Upload the movie file to Google Drive.</li>
+                                <li>Right-click the video file, select <b>Share</b>, and set permissions to <b>"Anyone with the link"</b>.</li>
+                                <li>Copy the link (e.g., <code>https://drive.google.com/file/d/<span class="text-danger">FILE_ID</span>/view?usp=sharing</code>).</li>
+                                <li>Replace the ID in this direct streaming URL layout and load it: <br>
+                                <code class="text-white">https://docs.google.com/uc?export=download&id=<span class="text-danger">FILE_ID</span></code></li>
+                            </ol>
                         </div>
                     </div>
                 </div>
@@ -1290,6 +1314,7 @@
             currentTime: 0,
             playing: true,
             lastUpdated: Date.now()
+            
         });
 
         document.getElementById("watchpartyPopupPromptBar").classList.remove("visible");
@@ -2041,6 +2066,43 @@
         }
     }
 
+    // --- CO-HOSTED & SYNC PLAY/PAUSE/SKIP FUNCTIONS ---
+    function triggerSharedPlayPause() {
+        if (!currentRoomId) return;
+        const newPlayState = !lastKnownHostState.playing;
+        let currentTime = 0;
+
+        if (currentActiveYtVideoId && ytPlayerInstance) {
+            currentTime = ytPlayerInstance.getCurrentTime();
+        } else if (player) {
+            currentTime = player.currentTime;
+        }
+
+        db.collection("rave_parties").doc(currentRoomId).update({
+            playing: newPlayState,
+            currentTime: currentTime,
+            lastUpdated: Date.now()
+        });
+    }
+
+    function triggerSharedSkip(seconds) {
+        if (!currentRoomId) return;
+        let currentTime = 0;
+
+        if (currentActiveYtVideoId && ytPlayerInstance) {
+            currentTime = ytPlayerInstance.getCurrentTime();
+        } else if (player) {
+            currentTime = player.currentTime;
+        }
+
+        let targetTime = Math.max(0, currentTime + seconds);
+
+        db.collection("rave_parties").doc(currentRoomId).update({
+            currentTime: targetTime,
+            lastUpdated: Date.now()
+        });
+    }
+
     function setupLocalPlayerSyncListeners() {
         if (!player) return;
 
@@ -2089,6 +2151,11 @@
             lastUpdated: Date.now()
         });
         document.getElementById("targetMediaUrl").value = "";
+    }
+
+    function toggleDriveGuide() {
+        const guide = document.getElementById("driveGuideBox");
+        guide.style.display = guide.style.display === "none" ? "block" : "none";
     }
 
     function initializeChatroomChannel(roomId) {
@@ -2253,7 +2320,7 @@
         input.value = "";
     }
 
-    // --- Dynamic YouTube, Netflix, & Prime TV Interactive Routing Integration ---
+    // --- Dynamic YouTube, Netflix, Prime, & Drive Routing ---
     function setSanctuarySource(src) {
         sanctuaryActiveSource = src;
         const requestGate = document.getElementById("sourceRequestGate");
@@ -2267,6 +2334,11 @@
 
         if (src === 'prime') {
             window.open("https://www.primevideo.com", "_blank");
+            return;
+        }
+
+        if (src === 'gdrive') {
+            window.open("https://drive.google.com", "_blank");
             return;
         }
 
@@ -2320,7 +2392,7 @@
     }
 
     function adjustVolumeMixerValues(val) {
-        console.log(`Mixer ratio balance updated to: ${val}`);
+        console.log(`Music/Voice balance changed to: ${val}`);
     }
 </script>
 </body>
