@@ -825,6 +825,8 @@
                     </div>
 
                     <iframe id="sanctuaryFrameNode" class="w-100 h-100 border-0" src="" allow="autoplay; fullscreen; encrypted-media" style="display:none;"></iframe>
+                    <!-- Native HTML5 Player specifically for streaming blocked Drive direct paths inside Leigh Room -->
+                    <video id="sanctuaryDrivePlayerNode" class="w-100 h-100" controls autoplay style="display:none; object-fit: contain; background: #000;"></video>
                 </div>
 
                 <!-- Live Instagram/Messenger-style Video Call Panel -->
@@ -1555,6 +1557,7 @@
         
         document.getElementById("sourceRequestGate").style.display = "flex";
         document.getElementById("sanctuaryFrameNode").style.display = "none";
+        document.getElementById("sanctuaryDrivePlayerNode").style.display = "none";
         document.getElementById("youtubeLinkPromptGate").style.display = "none";
     }
 
@@ -2377,11 +2380,33 @@
                 if (doc.exists) {
                     const data = doc.data();
                     const frame = document.getElementById("sanctuaryFrameNode");
-                    if (data.activeUrl && frame.src !== data.activeUrl) {
+                    const drivePlayer = document.getElementById("sanctuaryDrivePlayerNode");
+
+                    if (data.activeUrl) {
                         document.getElementById("sourceRequestGate").style.display = "none";
                         document.getElementById("youtubeLinkPromptGate").style.display = "none";
-                        frame.src = data.activeUrl;
-                        frame.style.display = "block";
+
+                        // Handle Google Drive sources through HTML5 Video element instead of standard restricted iFrames
+                        if (data.source === "gdrive" || data.activeUrl.includes("google.com/uc") || data.activeUrl.includes("export=download")) {
+                            frame.style.display = "none";
+                            frame.src = ""; // Clean Frame context
+                            
+                            if (drivePlayer.src !== data.activeUrl) {
+                                drivePlayer.src = data.activeUrl;
+                                drivePlayer.style.display = "block";
+                                drivePlayer.load();
+                                drivePlayer.play().catch(() => {});
+                            }
+                        } else {
+                            // Standard Youtube / Iframe sources
+                            drivePlayer.style.display = "none";
+                            drivePlayer.src = ""; // Clear drive player context
+                            
+                            if (frame.src !== data.activeUrl) {
+                                frame.src = data.activeUrl;
+                                frame.style.display = "block";
+                            }
+                        }
                     }
                 }
             });
@@ -2424,6 +2449,7 @@
 
         requestGate.style.display = "none";
         document.getElementById("sanctuaryFrameNode").style.display = "none";
+        document.getElementById("sanctuaryDrivePlayerNode").style.display = "none";
 
         if (src === 'youtube') {
             promptTitle.innerText = "Load YouTube Video Link";
@@ -2435,18 +2461,24 @@
     async function loadSanctuaryGDriveVideo() {
         const rawUrl = document.getElementById("sanctuaryGDriveUrlInput").value.trim();
         if (!rawUrl) return alert("Please enter a valid Google Drive target link.");
-        if (!rawUrl.includes("drive.google.com")) {
+        if (!rawUrl.includes("drive.google.com") && !rawUrl.includes("docs.google.com")) {
             return alert("Invalid domain setup. Make sure this is an official Google Drive layout link structure.");
         }
 
         let resolvedDirectUrl = rawUrl;
         
-        // Auto-extract File ID structure from shared links to map target frame endpoints
+        // Auto-extract File ID structure from shared links to map target player endpoints
         if (rawUrl.includes("/file/d/")) {
             const parts = rawUrl.split("/file/d/");
             if (parts[1]) {
                 const fileId = parts[1].split("/")[0];
-                resolvedDirectUrl = `https://docs.google.com/uc?export=download&id=${fileId}&autoplay=1`;
+                resolvedDirectUrl = `https://docs.google.com/uc?export=download&id=${fileId}`;
+            }
+        } else if (rawUrl.includes("id=")) {
+            const parts = rawUrl.split("id=");
+            if (parts[1]) {
+                const fileId = parts[1].split("&")[0];
+                resolvedDirectUrl = `https://docs.google.com/uc?export=download&id=${fileId}`;
             }
         }
 
@@ -2481,7 +2513,7 @@
             if (vId) {
                 targetFrameUrl = `https://www.youtube.com/embed/${vId}?autoplay=1&enablejsapi=1`;
             } else {
-                return alert("Could not extract YouTube video ID.");
+                return alert("Could not extract a valid YouTube video ID from that link.");
             }
         }
 
@@ -2491,18 +2523,14 @@
             timestamp: Date.now()
         });
 
+        document.getElementById("sanctuaryYtUrlInput").value = "";
         document.getElementById("sourceRequestGate").style.display = "none";
         document.getElementById("youtubeLinkPromptGate").style.display = "none";
-        document.getElementById("sanctuaryYtUrlInput").value = "";
     }
 
     function cancelYtLinkInput() {
         document.getElementById("youtubeLinkPromptGate").style.display = "none";
         document.getElementById("sourceRequestGate").style.display = "flex";
-    }
-
-    function adjustVolumeMixerValues(val) {
-        // Implement customized local HTML5 Audio volume track manipulation logic here if desired
     }
 </script>
 </body>
