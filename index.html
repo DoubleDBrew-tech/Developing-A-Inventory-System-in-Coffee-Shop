@@ -1340,7 +1340,6 @@
             currentTime: 0,
             playing: true,
             lastUpdated: Date.now()
-            
         });
 
         document.getElementById("watchpartyPopupPromptBar").classList.remove("visible");
@@ -2447,7 +2446,6 @@
             const parts = rawUrl.split("/file/d/");
             if (parts[1]) {
                 const fileId = parts[1].split("/")[0];
-                // Added &autoplay=1 into structural string layout to load up instant streaming execution
                 resolvedDirectUrl = `https://docs.google.com/uc?export=download&id=${fileId}&autoplay=1`;
             }
         }
@@ -2483,17 +2481,17 @@
             if (vId) {
                 targetFrameUrl = `https://www.youtube.com/embed/${vId}?autoplay=1&enablejsapi=1`;
             } else {
-                return alert("Could not extract a valid YouTube video ID from that link.");
+                return alert("Could not extract YouTube video ID.");
             }
         }
 
-        // Write to global synchronizer state
         await db.collection("sanctuary_media").doc("global_state").set({
             activeUrl: targetFrameUrl,
             source: sanctuaryActiveSource,
             timestamp: Date.now()
         });
 
+        document.getElementById("sourceRequestGate").style.display = "none";
         document.getElementById("youtubeLinkPromptGate").style.display = "none";
         document.getElementById("sanctuaryYtUrlInput").value = "";
     }
@@ -2504,7 +2502,7 @@
     }
 
     function adjustVolumeMixerValues(val) {
-        console.log(`Music/Voice balance changed to: ${val}`);
+        // Implement customized local HTML5 Audio volume track manipulation logic here if desired
     }
 </script>
 </body>
