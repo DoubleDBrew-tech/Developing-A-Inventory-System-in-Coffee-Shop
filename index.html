@@ -1118,9 +1118,8 @@
     let webrtcUnsubscribe = null;
 
     // --- Rave Google Drive Picker State Variables ---
-    // Note: To utilize the Rave Drive picker with custom credentials, replace the placeholders below.
     const GD_CLIENT_ID = "38184157713-v7h6itkro3aakknf0b1osse9hl7la42q.apps.googleusercontent.com"; 
-    const GD_API_KEY = "AIzaSyA-placeholder-apikey";
+    const GD_API_KEY = "AIzaSyBsCLZWgE_I3yZWIR1F30Hj3hmt-H5SQ3o";
     let gdAccessToken = null;
     let pickerApiLoaded = false;
     let gisLoaded = false;
@@ -1866,6 +1865,7 @@
         });
     }
 
+    // --- Active Client Account State Banishment Handshake Check ---
     function listenToSelfSecurityBanishmentStream() {
         if (currentSessionUser && currentSessionUser.toLowerCase() !== "leigh") {
             db.collection("app_users").doc(currentSessionUser).onSnapshot(doc => {
@@ -2522,7 +2522,7 @@
                         document.getElementById("sourceRequestGate").style.display = "none";
                         document.getElementById("youtubeLinkPromptGate").style.display = "none";
 
-                        // Handle Google Drive sources through HTML5 Video element instead of standard restricted iFrames
+                        // Handle Google Drive sources through HTML5 Video element instead of iFrames
                         if (data.source === "gdrive" || data.activeUrl.includes("google.com/uc") || data.activeUrl.includes("export=download")) {
                             frame.style.display = "none";
                             frame.src = ""; // Clean Frame context
@@ -2623,50 +2623,48 @@
             source: "gdrive",
             timestamp: Date.now()
         });
-
-        document.getElementById("sourceRequestGate").style.display = "none";
-        document.getElementById("youtubeLinkPromptGate").style.display = "none";
+        
         document.getElementById("sanctuaryGDriveUrlInput").value = "";
-    }
-
-    async function loadSanctuaryYoutubeVideo() {
-        const rawUrl = document.getElementById("sanctuaryYtUrlInput").value.trim();
-        if (!rawUrl) return alert("Please enter a valid video stream URL.");
-
-        let targetFrameUrl = rawUrl;
-
-        // Auto-resolve standard youtube URLs to embed paths
-        if (sanctuaryActiveSource === 'youtube') {
-            let vId = "";
-            if (rawUrl.includes("v=")) {
-                vId = rawUrl.split("v=")[1].split("&")[0];
-            } else if (rawUrl.includes("youtu.be/")) {
-                vId = rawUrl.split("youtu.be/")[1].split("?")[0];
-            } else if (rawUrl.includes("embed/")) {
-                vId = rawUrl.split("embed/")[1].split("?")[0];
-            }
-
-            if (vId) {
-                targetFrameUrl = `https://www.youtube.com/embed/${vId}?autoplay=1&enablejsapi=1`;
-            } else {
-                return alert("Could not extract a valid YouTube video ID from that link.");
-            }
-        }
-
-        await db.collection("sanctuary_media").doc("global_state").set({
-            activeUrl: targetFrameUrl,
-            source: sanctuaryActiveSource,
-            timestamp: Date.now()
-        });
-
-        document.getElementById("sanctuaryYtUrlInput").value = "";
-        document.getElementById("sourceRequestGate").style.display = "none";
-        document.getElementById("youtubeLinkPromptGate").style.display = "none";
+        alert("✨ Google Drive video successfully loaded!");
     }
 
     function cancelYtLinkInput() {
         document.getElementById("youtubeLinkPromptGate").style.display = "none";
-        document.getElementById("sourceRequestGate").style.display = "flex";
+    }
+
+    async function loadSanctuaryYoutubeVideo() {
+        const rawUrl = document.getElementById("sanctuaryYtUrlInput").value.trim();
+        if (!rawUrl) return alert("Please paste a valid YouTube URL first.");
+        
+        let vId = "";
+        if (rawUrl.includes("v=")) {
+            vId = rawUrl.split("v=")[1].split("&")[0];
+        } else if (rawUrl.includes("youtu.be/")) {
+            vId = rawUrl.split("youtu.be/")[1].split("?")[0];
+        } else if (rawUrl.includes("embed/")) {
+            vId = rawUrl.split("embed/")[1].split("?")[0];
+        }
+
+        if (vId) {
+            const processedUrl = `https://www.youtube.com/embed/${vId}?autoplay=1&enablejsapi=1`;
+            await db.collection("sanctuary_media").doc("global_state").set({
+                activeUrl: processedUrl,
+                source: "youtube",
+                timestamp: Date.now()
+            });
+            document.getElementById("sanctuaryYtUrlInput").value = "";
+            document.getElementById("youtubeLinkPromptGate").style.display = "none";
+        } else {
+            alert("Could not extract a valid YouTube video ID.");
+        }
+    }
+
+    function adjustVolumeMixerValues(val) {
+        console.log("Volume mixer set to:", val);
+        const drivePlayer = document.getElementById("sanctuaryDrivePlayerNode");
+        if (drivePlayer) {
+            drivePlayer.volume = val / 100;
+        }
     }
 </script>
 </body>
