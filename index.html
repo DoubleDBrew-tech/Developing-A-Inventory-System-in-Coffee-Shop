@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
     
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Caveat:wght=700&family=Poppins:wght=300;400;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@700&family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
 
     <style>
         :root {
@@ -1107,28 +1107,6 @@
         const firstScriptTag = document.getElementsByTagName('script')[0];
         firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
     }
-    
-    /**
- * Converts a standard Google Drive URL into a direct streamable URL.
- */
-function getDirectDriveUrl(url) {
-    if (!url.includes("drive.google.com")) return url;
-    
-    // Extract File ID
-    let fileId = "";
-    if (url.includes("/file/d/")) {
-        fileId = url.split("/file/d/")[1].split("/")[0];
-    } else if (url.includes("id=")) {
-        fileId = url.split("id=")[1].split("&")[0];
-    }
-    
-    if (fileId) {
-        // This is the direct streaming proxy link
-        return `https://docs.google.com/uc?export=download&id=${fileId}`;
-    }
-    return url;
-}
-
 
     window.onYouTubeIframeAPIReady = function() {
         ytApiReady = true;
@@ -2244,22 +2222,18 @@ function getDirectDriveUrl(url) {
     }
 
     function updateRoomMedia() {
-    const rawUrl = document.getElementById("targetMediaUrl").value.trim();
-    if (!rawUrl) return alert("Please enter a valid link target.");
+        const url = document.getElementById("targetMediaUrl").value.trim();
+        if (!url) return alert("Please enter a valid link target.");
 
-    // Convert to direct stream link if it's from Drive
-    const processedUrl = rawUrl.includes("drive.google.com") ? getDirectDriveUrl(rawUrl) : rawUrl;
-
-    db.collection("rave_parties").doc(currentRoomId).update({
-        mediaUrl: processedUrl,
-        mediaTitle: "Drive Stream Activated",
-        currentTime: 0,
-        playing: true,
-        lastUpdated: Date.now()
-    });
-    document.getElementById("targetMediaUrl").value = "";
-}
-
+        db.collection("rave_parties").doc(currentRoomId).update({
+            mediaUrl: url,
+            mediaTitle: "Loaded Custom Stream",
+            currentTime: 0,
+            playing: false,
+            lastUpdated: Date.now()
+        });
+        document.getElementById("targetMediaUrl").value = "";
+    }
 
     function toggleDriveGuide() {
         const guide = document.getElementById("driveGuideBox");
@@ -2485,23 +2459,13 @@ function getDirectDriveUrl(url) {
 
     // --- Inner Sanctum Private Google Drive Stream Resolution handler ---
     async function loadSanctuaryGDriveVideo() {
-    const rawUrl = document.getElementById("sanctuaryGDriveUrlInput").value.trim();
-    if (!rawUrl) return alert("Please enter a valid Google Drive link.");
-    
-    // Use the new helper
-    const resolvedDirectUrl = getDirectDriveUrl(rawUrl);
+        const rawUrl = document.getElementById("sanctuaryGDriveUrlInput").value.trim();
+        if (!rawUrl) return alert("Please enter a valid Google Drive target link.");
+        if (!rawUrl.includes("drive.google.com") && !rawUrl.includes("docs.google.com")) {
+            return alert("Invalid domain setup. Make sure this is an official Google Drive layout link structure.");
+        }
 
-    await db.collection("sanctuary_media").doc("global_state").set({
-        activeUrl: resolvedDirectUrl,
-        source: "gdrive",
-        timestamp: Date.now()
-    });
-
-    document.getElementById("sanctuaryGDriveUrlInput").value = "";
-}
-
-
-        
+        let resolvedDirectUrl = rawUrl;
         
         // Auto-extract File ID structure from shared links to map target player endpoints
         if (rawUrl.includes("/file/d/")) {
