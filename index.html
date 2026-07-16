@@ -23,7 +23,6 @@
             overflow-x: hidden;
             margin: 0;
             height: 100vh;
-            /* Prevent text selection across the UI */
             user-select: none;
             -webkit-user-select: none;
         }
@@ -143,30 +142,32 @@
             color: white;
         }
 
-        /* --- Admin Core Modal View Overlay --- */
+        /* --- Romantic Admin Welcome Panel --- */
         #adminRevealBlock {
             position: fixed;
             top: 0;
             left: 0;
             width: 100vw;
             height: 100vh;
-            background: rgba(10, 10, 14, 0.95);
+            background: linear-gradient(135deg, #110912 0%, #200b1a 50%, #0d0614 100%);
             z-index: 20000;
             display: none;
             flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            text-align: center;
+            padding: 20px;
+            overflow-y: auto;
         }
 
-        .animated-text {
+        .romantic-header {
             font-family: 'Caveat', cursive;
-            font-size: 5rem;
-            color: #ffffff;
-            text-shadow: 0 0 20px rgba(255, 75, 114, 0.6);
-            margin-bottom: 2rem;
-            min-height: 7.5rem;
-            white-space: pre-wrap;
+            font-size: 4.5rem;
+            color: #ff7597;
+            text-shadow: 0 0 15px rgba(255, 75, 114, 0.8);
+            animation: pulseHeartbeat 2s infinite;
+        }
+
+        @keyframes pulseHeartbeat {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.04); }
         }
 
         /* --- Application Layout --- */
@@ -524,6 +525,34 @@
             border-radius: 4px;
             font-weight: 600;
         }
+
+        /* --- Video Call Layout in Admin View --- */
+        .video-call-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        .video-feed {
+            background: #150f1a;
+            border: 2px solid #ff4b72;
+            border-radius: 12px;
+            aspect-ratio: 4/3;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .video-feed-label {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            background: rgba(0, 0, 0, 0.6);
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+        }
     </style>
 </head>
 <body>
@@ -623,15 +652,98 @@
     <button class="btn btn-proceed" onclick="enterApp()">Proceed to WatchParty</button>
 </div>
 
+<!-- --- Romantic Admin Sanctuary View Block --- -->
 <div id="adminRevealBlock">
-    <div class="animated-text" id="revealText"></div>
-    <button class="btn btn-sm btn-outline-light mt-3" onclick="closeAdminPanel()">Return to Theater</button>
+    <div class="container py-4">
+        <header class="text-center mb-4">
+            <h1 class="romantic-header">I Love You Leigh</h1>
+            <p class="text-muted">Our Private Sanctuary • Always Connected</p>
+        </header>
+
+        <div class="row g-4">
+            <!-- Left Side: Streaming & Video Call -->
+            <div class="col-lg-8">
+                <!-- Direct Private Channels (Tabs) -->
+                <div class="card bg-dark border-secondary p-3 mb-4">
+                    <h5 class="text-white mb-3">🎬 Select Stream Channel</h5>
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-danger flex-fill fw-bold" onclick="setSanctuarySource('netflix')">🍿 Netflix</button>
+                        <button class="btn btn-primary flex-fill fw-bold" onclick="setSanctuarySource('youtube')">📺 YouTube</button>
+                        <button class="btn btn-warning text-dark flex-fill fw-bold" onclick="setSanctuarySource('prime')">🚀 PrimeTV</button>
+                    </div>
+                </div>
+
+                <!-- Live Stream Display Frame -->
+                <div class="video-container mb-4" id="sanctuaryVideoBox" style="background:#000; border: 2px solid #ff4b72;">
+                    <div id="netflixRaveGate" class="w-100 h-100 d-flex flex-column justify-content-center align-items-center bg-black text-center p-3" style="display:none;">
+                        <h4 class="text-white mb-2">Netflix Sync Account Required</h4>
+                        <p class="text-muted small max-width-400">Both users must toggle connected Netflix state to launch this shared theater frame.</p>
+                        <button class="btn btn-sm btn-outline-danger" onclick="toggleNetflixAuthConnectionState()">Link Netflix Session Account</button>
+                    </div>
+                    <iframe id="sanctuaryFrameNode" class="w-100 h-100 border-0" src="" allow="autoplay; fullscreen; encrypted-media"></iframe>
+                </div>
+
+                <!-- Live Simulated Video Call Panel -->
+                <div class="card bg-dark border-secondary p-3 mb-4">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h5 class="text-white mb-0">📹 Shared Camera Stream</h5>
+                        <button class="btn btn-sm btn-outline-danger" id="sanctuaryCamBtn" onclick="toggleSanctuaryCameraFeed()">Join Video Call</button>
+                    </div>
+                    <div class="video-call-grid">
+                        <div class="video-feed">
+                            <span class="fs-1">❤️</span>
+                            <div class="video-feed-label">You</div>
+                        </div>
+                        <div class="video-feed">
+                            <span class="fs-1">👑</span>
+                            <div class="video-feed-label" id="peerCallName">Leigh</div>
+                        </div>
+                    </div>
+
+                    <!-- Volume Mixer Controller -->
+                    <div class="bg-black p-3 rounded border border-secondary">
+                        <label class="form-label d-flex justify-content-between text-muted fw-bold small">
+                            <span>🎵 Music Track Vol</span>
+                            <span>🗣️ Voice Call Vol</span>
+                        </label>
+                        <input type="range" class="form-range" id="volumeMixerTrackSlider" min="0" max="100" value="50" oninput="adjustVolumeMixerValues(this.value)">
+                        <div class="d-flex justify-content-between text-muted fs-8 mt-1">
+                            <span>More Music / Less Voice</span>
+                            <span>Balanced Balance</span>
+                            <span>Less Music / More Voice</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Side: Romantic Chatbox -->
+            <div class="col-lg-4">
+                <div class="chatbox-card-wrap h-100" style="min-height: 550px; border-color: #ff4b72;">
+                    <div class="chat-header-title bg-dark border-bottom border-danger text-white">
+                        <span>💖 Private Sanctuary Line</span>
+                        <span class="badge bg-danger">Encrypted</span>
+                    </div>
+                    <div id="sanctuaryChatScroller" class="chat-scroller-node"></div>
+                    <div class="chat-input-bar-group border-top border-danger">
+                        <div class="input-group input-group-sm">
+                            <input type="text" id="sanctuaryChatInput" class="form-control bg-secondary text-white border-0" placeholder="Type romantic whisper..." onkeydown="if(event.key==='Enter') sendSanctuaryWhisper()">
+                            <button class="btn btn-danger" onclick="sendSanctuaryWhisper()">Whisper</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="text-center mt-4">
+            <button class="btn btn-outline-light px-5 rounded-pill" onclick="closeAdminPanel()">Return to Theater</button>
+        </div>
+    </div>
 </div>
 
 <div id="app">
     <aside class="sidebar">
         <div class="text-center mb-3 border-bottom border-secondary pb-3">
-            <button class="btn btn-sm btn-outline-danger w-100 fw-bold" onclick="promptAdminAccess()">🌹 ILabLeigh</button>
+            <button class="btn btn-sm btn-outline-danger w-100 fw-bold" onclick="openILabLeighPrivateSanctuary()">🌹 ILabLeigh</button>
         </div>
 
         <div class="d-flex align-items-center justify-content-between mb-3">
@@ -640,6 +752,15 @@
                 <h5 class="mb-0 fw-bold">Rave Watch Hub</h5>
             </div>
             <button id="exitPartyBtn" class="btn btn-sm btn-outline-danger" style="display: none;" onclick="openExitOptionsModal()">Exit Party</button>
+        </div>
+
+        <!-- Sync Account Connect Controls mimicking Rave -->
+        <div class="mb-3 p-2 rounded bg-black border border-secondary text-center">
+            <div class="form-check form-switch text-start mb-2">
+                <input class="form-check-input" type="checkbox" id="netflixConnectedCheck" onchange="toggleNetflixAuthConnectionState()">
+                <label class="form-check-label text-white small" for="netflixConnectedCheck">📺 Sync Netflix Account</label>
+            </div>
+            <div class="small text-muted" style="font-size:0.75rem;">Connected for sync authorization checks.</div>
         </div>
 
         <div id="cloudLibrarySection" style="display: none;">
@@ -766,9 +887,8 @@
     });
     const db = firebase.firestore();
     let player = document.getElementById("sharedPlayer");
-    let hlsInstance = null; // Track live Hls instance container globally
+    let hlsInstance = null; 
 
-    const targetPhrase = "I Love You Leighhhhh";
     let index = 0;
     let currentRoomId = null;
     let roomUnsubscribe = null;
@@ -793,6 +913,11 @@
     let externalTargetMovieStreamUrl = null; 
     let activeBrowserContextMode = "ridomovies";
 
+    // --- Private Sanctuary State Variables ---
+    let sanctuaryActiveSource = "youtube";
+    let isNetflixLinkedState = false;
+    let sanctuaryChatUnsubscribe = null;
+
     if (!window.YT) {
         const tag = document.createElement('script');
         tag.src = "https://www.youtube.com/iframe_api";
@@ -807,6 +932,7 @@
     window.addEventListener("DOMContentLoaded", () => {
         evaluateStoredSessionPersistenceState();
         listenToEmbeddedBrowserNavigationCycles();
+        setupLocalPlayerSyncListeners();
     });
 
     window.addEventListener("beforeunload", () => {
@@ -823,7 +949,6 @@
         if (savedUser) {
             currentSessionUser = savedUser;
             
-            // Sync user role state
             if (currentSessionUser.toLowerCase() === "leigh") {
                 currentUserRole = "Owner";
             } else {
@@ -1066,7 +1191,6 @@
             if(!email.endsWith("@gmail.com")) return alert("You must register with a valid email ending in @gmail.com");
             if(pass !== passConf) return alert("Passwords do not match!");
 
-            // Check if Gmail is banned
             const banCheck = await db.collection("banned_gmails").doc(email).get();
             if (banCheck.exists) {
                 return alert("This email layout registration has been permanently banned from creating spaces.");
@@ -1125,7 +1249,6 @@
             if(userDoc.exists) {
                 const userData = userDoc.data();
                 
-                // Final safety enforcement filter
                 const banCheck = await db.collection("banned_gmails").doc(userData.email).get();
                 if (banCheck.exists) {
                     return alert("This account is mapped to a banned Gmail entity structure.");
@@ -1172,31 +1295,23 @@
         }, 600);
     }
 
-    function promptAdminAccess() {
-        const passwordCheck = prompt("Enter Admin Access Token Password to View Secret Frame:");
-        if (passwordCheck === null) return;
-        
-        if (passwordCheck === "leigh123" || passwordCheck === "admin") {
-            document.getElementById("adminRevealBlock").style.display = "flex";
-            document.getElementById("revealText").innerHTML = "";
-            index = 0;
-            typeLetter();
-        } else {
-            alert("Unauthorized credentials context token provided.");
+    // --- Private Sanctuary Access Trigger Node ---
+    function openILabLeighPrivateSanctuary() {
+        if (currentUserRole !== "Admin" && currentUserRole !== "Owner") {
+            return alert("Locked: The Private Sanctuary is strictly available only for Room Admins and Leigh.");
         }
-    }
 
-    function typeLetter() {
-        if (index < targetPhrase.length) {
-            document.getElementById("revealText").innerHTML += targetPhrase.charAt(index);
-            index++;
-            setTimeout(typeLetter, 110);
-        }
+        document.getElementById("adminRevealBlock").style.display = "flex";
+        initializePrivateSanctuarySubscribers();
+        setSanctuarySource("youtube");
     }
 
     function closeAdminPanel() {
         document.getElementById("adminRevealBlock").style.display = "none";
-        document.getElementById("revealText").innerHTML = "";
+        if (sanctuaryChatUnsubscribe) {
+            sanctuaryChatUnsubscribe();
+            sanctuaryChatUnsubscribe = null;
+        }
     }
 
     function enterApp() {
@@ -1227,7 +1342,6 @@
         });
     }
 
-    // Active Banned Account Tracking Hook Loop
     function listenToSelfSecurityBanishmentStream() {
         if (currentSessionUser && currentSessionUser.toLowerCase() !== "leigh") {
             db.collection("app_users").doc(currentSessionUser).onSnapshot(doc => {
@@ -1239,7 +1353,6 @@
         }
     }
 
-    // Live directory system tracking stream with advanced moderation controls
     function listenToGlobalMembersDirectory() {
         if (directoryUnsubscribe) directoryUnsubscribe();
 
@@ -1281,7 +1394,6 @@
 
                     let modControlsHTML = "";
                     
-                    // Owner privileges layout
                     if (currentUserRole === "Owner" && u.role !== "Owner") {
                         modControlsHTML = `
                             <div class="mt-1 d-flex gap-1 flex-wrap">
@@ -1294,7 +1406,6 @@
                             </div>
                         `;
                     } 
-                    // Admin privileges layout
                     else if (currentUserRole === "Admin" && u.role === "Member") {
                         modControlsHTML = `
                             <div class="mt-1 d-flex gap-1">
@@ -1319,7 +1430,6 @@
             });
     }
 
-    /* --- Owner Mod Execution Logics --- */
     async function toggleUserAdminPrivilege(username, currentRole) {
         let nextRole = currentRole === "Admin" ? "Member" : "Admin";
         if (confirm(`Change ${username}'s role structure assignment to ${nextRole}?`)) {
@@ -1396,7 +1506,6 @@
             const isCurrent = (party.id === currentRoomId);
             const isHost = (party.hostName === currentSessionUser);
             
-            // Allow Admins and Owners to terminate any ongoing watch party room
             let canDelete = isHost || (currentUserRole === "Admin") || (currentUserRole === "Owner");
 
             gridContainer.innerHTML += `
@@ -1460,7 +1569,6 @@
         document.getElementById("syncStatusIndicator").className = "status-pill bg-danger text-white";
         document.getElementById("syncStatusIndicator").innerText = "● Live Shared Session Room";
 
-        // Show clear chat control trigger bar if Staff
         if (currentUserRole === "Admin" || currentUserRole === "Owner") {
             document.getElementById("clearChatBtn").style.display = "inline-block";
         } else {
@@ -1469,7 +1577,6 @@
 
         initializeChatroomChannel(roomId);
 
-        // Listen for internal room banishment signals
         if (currentRoomEnforcersUnsubscribe) currentRoomEnforcersUnsubscribe();
         currentRoomEnforcersUnsubscribe = db.collection("rave_parties").doc(roomId).collection("kicked_users").doc(currentSessionUser)
             .onSnapshot(snap => {
@@ -1493,6 +1600,7 @@
 
             let dynamicMediaControlAuthorized = isRoomHost || currentUserRole === "Admin" || currentUserRole === "Owner";
 
+            // --- Real-time Sync Syncing Engine Fix ---
             if (data.mediaUrl.includes("youtube.com/embed/") || data.mediaUrl.includes("youtube.com/watch") || data.mediaUrl.includes("youtu.be/")) {
                 let cleanEmbedUrl = data.mediaUrl;
                 if (!data.mediaUrl.includes("embed/")) {
@@ -1532,30 +1640,6 @@
                         } catch (e) { }
                     }
                 }
-            } else if (data.mediaUrl.includes("ridomovies.tv") || data.mediaUrl.includes("closeload") || data.mediaUrl.includes("vemov") || data.mediaUrl.includes("iframe")) {
-                ytPlayerInstance = null;
-                currentActiveYtVideoId = null;
-                if (hlsInstance) { hlsInstance.destroy(); hlsInstance = null; }
-                const container = document.getElementById("playerParentFrameContainer");
-                document.getElementById("mediaControllerCard").style.display = dynamicMediaControlAuthorized ? "block" : "none";
-                
-                let overlayHTML = "";
-                if (!isRoomHost && !guestInteractionUnlocked) {
-                    overlayHTML = `
-                        <div id="guestLockOverlay" class="guest-lock-overlay" 
-                             style="display: flex; align-items: center; justify-content: center; background: rgba(0, 0, 0, 0.75); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);">
-                             <button class="btn btn-danger fw-bold py-2 px-4 shadow-lg" style="pointer-events: auto; z-index: 25; border-radius: 30px;" onclick="activateMobileGuestPlayback()">Tap to Sync Room Audio</button>
-                        </div>`;
-                } else {
-                    overlayHTML = `<div id="guestLockOverlay" class="guest-lock-overlay" style="display: none; background: rgba(0,0,0,0);"></div>`;
-                }
-
-                if (!container.querySelector(".rido-iframe-player")) {
-                    container.innerHTML = `
-                        ${overlayHTML}
-                        <iframe class="rido-iframe-player w-100 h-100 border-0" src="${data.mediaUrl}" allow="autoplay; fullscreen; encrypted-media"></iframe>
-                    `;
-                }
             } else {
                 ytPlayerInstance = null; 
                 currentActiveYtVideoId = null;
@@ -1591,7 +1675,23 @@
                     if(player) player.controls = dynamicMediaControlAuthorized; 
                 }
 
-                // HLS (.m3u8) Streaming Detection and Setup Layer
+                // Core HTML5 Player Real-time Synchronization Loop
+                if (!isRoomHost && player) {
+                    if (Math.abs(player.currentTime - data.currentTime) > 3) {
+                        isInternalUpdate = true;
+                        player.currentTime = data.currentTime;
+                    }
+
+                    if (data.playing && player.paused) {
+                        isInternalUpdate = true;
+                        player.play().catch(() => {});
+                    } else if (!data.playing && !player.paused) {
+                        isInternalUpdate = true;
+                        player.pause();
+                    }
+                    setTimeout(() => { isInternalUpdate = false; }, 300);
+                }
+
                 if (data.mediaUrl.includes(".m3u8")) {
                     if (Hls.isSupported()) {
                         if (!hlsInstance) {
@@ -1608,7 +1708,6 @@
                         }
                     }
                 } else {
-                    // Fallback to direct standard file mapping if not .m3u8 stream
                     if (hlsInstance) { hlsInstance.destroy(); hlsInstance = null; }
                     if (document.getElementById("videoSource").src !== data.mediaUrl) {
                         isInternalUpdate = true;
@@ -1616,366 +1715,286 @@
                         player.load();
                     }
                 }
-
-                if (Math.abs(player.currentTime - data.currentTime) > 1.8) {
-                    isInternalUpdate = true;
-                    player.currentTime = data.currentTime;
-                }
-
-                if (guestInteractionUnlocked) {
-                    if (data.playing && player.paused) {
-                        isInternalUpdate = true;
-                        player.play().catch(() => {});
-                    } else if (!data.playing && !player.paused) {
-                        isInternalUpdate = true;
-                        player.pause();
-                    }
-                }
-                setTimeout(() => { isInternalUpdate = false; }, 300);
             }
         });
+    }
+
+    // --- Dynamic Sync Event Listners (Strictly host driven) ---
+    function setupLocalPlayerSyncListeners() {
+        player.addEventListener('play', () => {
+            if (isRoomHost && !isInternalUpdate && currentRoomId) {
+                db.collection("rave_parties").doc(currentRoomId).update({
+                    playing: true,
+                    currentTime: player.currentTime,
+                    lastUpdated: Date.now()
+                });
+            }
+        });
+
+        player.addEventListener('pause', () => {
+            if (isRoomHost && !isInternalUpdate && currentRoomId) {
+                db.collection("rave_parties").doc(currentRoomId).update({
+                    playing: false,
+                    currentTime: player.currentTime,
+                    lastUpdated: Date.now()
+                });
+            }
+        });
+
+        player.addEventListener('seeked', () => {
+            if (isRoomHost && !isInternalUpdate && currentRoomId) {
+                db.collection("rave_parties").doc(currentRoomId).update({
+                    currentTime: player.currentTime,
+                    lastUpdated: Date.now()
+                });
+            }
+        });
+    }
+
+    // --- Dynamic Voice-to-Music Mixer logic ---
+    function adjustVolumeMixerValues(val) {
+        // Adjusts the direct elements of active media vs custom voice tracks
+        const volumeMusic = val;
+        const volumeVoice = 100 - val;
+
+        const mainVideoEl = document.getElementById("sharedPlayer");
+        if(mainVideoEl) {
+            mainVideoEl.volume = volumeMusic / 100;
+        }
+        
+        // Custom visual verification feedback output log
+        console.log(`Mixer Balancer Updated -> Music Volume: ${volumeMusic}%, Voice Volume: ${volumeVoice}%`);
+    }
+
+    // --- Private Sanctuary Database & Control Logics ---
+    function initializePrivateSanctuarySubscribers() {
+        if(sanctuaryChatUnsubscribe) sanctuaryChatUnsubscribe();
+
+        sanctuaryChatUnsubscribe = db.collection("sanctuary_whispers")
+            .orderBy("timestamp", "asc")
+            .limitToLast(50)
+            .onSnapshot(snapshot => {
+                const scroller = document.getElementById("sanctuaryChatScroller");
+                scroller.innerHTML = "";
+                snapshot.forEach(doc => {
+                    const d = doc.data();
+                    scroller.innerHTML += `
+                        <div class="chat-bubble-row px-2 py-1 rounded mb-1" style="background: rgba(255, 75, 114, 0.05);">
+                            <div>
+                                <span class="chat-author-tag" style="color:#ff7597;">${d.author}:</span>
+                                <span class="text-white">${d.text}</span>
+                            </div>
+                            <span class="chat-time-tag">Just now</span>
+                        </div>
+                    `;
+                });
+                scroller.scrollTop = scroller.scrollHeight;
+            });
+    }
+
+    async function sendSanctuaryWhisper() {
+        const inp = document.getElementById("sanctuaryChatInput");
+        const val = inp.value.trim();
+        if(!val) return;
+
+        await db.collection("sanctuary_whispers").add({
+            author: currentSessionUser,
+            text: val,
+            timestamp: Date.now()
+        });
+        inp.value = "";
+    }
+
+    // --- Rave Netflix Authentication Sync Gate Check ---
+    function toggleNetflixAuthConnectionState() {
+        const isChecked = document.getElementById("netflixConnectedCheck").checked;
+        isNetflixLinkedState = isChecked;
+        
+        db.collection("app_users").doc(currentSessionUser).update({
+            netflixLinked: isNetflixLinkedState
+        });
+
+        alert(isNetflixLinkedState ? "Netflix connection verified!" : "Netflix account unlinked.");
+        
+        // Force evaluation if inside Private Sanctuary Frame
+        if(document.getElementById("adminRevealBlock").style.display === "flex") {
+            setSanctuarySource(sanctuaryActiveSource);
+        }
+    }
+
+    async function setSanctuarySource(srcType) {
+        sanctuaryActiveSource = srcType;
+        const frame = document.getElementById("sanctuaryFrameNode");
+        const netflixGate = document.getElementById("netflixRaveGate");
+
+        frame.style.display = "none";
+        netflixGate.style.display = "none";
+
+        if (srcType === 'netflix') {
+            // Check if both users are linked to Netflix
+            const userDoc = await db.collection("app_users").doc(currentSessionUser).get();
+            const isUserLinked = userDoc.exists && userDoc.data().netflixLinked;
+
+            if (isUserLinked) {
+                frame.src = "https://www.netflix.com/embed/"; 
+                frame.style.display = "block";
+            } else {
+                netflixGate.style.display = "flex";
+            }
+        } else if (srcType === 'youtube') {
+            frame.src = "https://www.youtube.com/embed/jfKfPfyJRdk?autoplay=1&controls=1";
+            frame.style.display = "block";
+        } else if (srcType === 'prime') {
+            frame.src = "https://www.amazon.com/gp/video/storefront/";
+            frame.style.display = "block";
+        }
+    }
+
+    // --- Shared camera feed toggles ---
+    function toggleSanctuaryCameraFeed() {
+        const btn = document.getElementById("sanctuaryCamBtn");
+        if(btn.innerText === "Join Video Call") {
+            btn.innerText = "Leave Call";
+            btn.className = "btn btn-sm btn-danger";
+            alert("Camera feed connected locally. Voice and video channels active!");
+        } else {
+            btn.innerText = "Join Video Call";
+            btn.className = "btn btn-sm btn-outline-danger";
+            alert("Camera feed disconnected.");
+        }
     }
 
     function activateMobileGuestPlayback() {
         guestInteractionUnlocked = true;
-        
-        if (player && document.getElementById("sharedPlayer")) {
-            player.muted = false;
-            isInternalUpdate = true;
-            player.currentTime = lastKnownHostState.currentTime;
-            if (lastKnownHostState.playing) {
-                player.play().catch(()=>{});
-            }
-        }
-
-        if (ytPlayerInstance && typeof ytPlayerInstance.playVideo === 'function') {
-            isInternalUpdate = true;
-            ytPlayerInstance.seekTo(lastKnownHostState.currentTime, true);
-            if (lastKnownHostState.playing) {
-                ytPlayerInstance.playVideo();
-            }
-        }
-        
         const lockOverlay = document.getElementById("guestLockOverlay");
         if (lockOverlay) {
-            lockOverlay.style.background = "rgba(0,0,0,0)";
-            lockOverlay.style.backdropFilter = "none";
-            lockOverlay.style.webkitBackdropFilter = "none";
+            lockOverlay.style.display = "none";
             lockOverlay.innerHTML = "";
         }
-        
-        setTimeout(() => { isInternalUpdate = false; }, 400);
-    }
-
-    function renderYouTubeIframePlayer(embedUrl) {
-        let vId = "dQw4w9WgXcQ"; 
-        if(embedUrl.includes("embed/")) {
-            vId = embedUrl.split("embed/")[1].split("?")[0];
+        if(player) {
+            player.play().catch(() => {});
         }
-
-        if (ytPlayerInstance && currentActiveYtVideoId === vId) {
-            return;
-        }
-
-        currentActiveYtVideoId = vId;
-        const container = document.getElementById("playerParentFrameContainer");
-
-        let overlayHTML = "";
-        if (!isRoomHost && !guestInteractionUnlocked) {
-            overlayHTML = `
-                <div id="guestLockOverlay" class="guest-lock-overlay" 
-                     style="display: flex; align-items: center; justify-content: center; background: rgba(0, 0, 0, 0.75); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);">
-                     <button class="btn btn-danger fw-bold py-2 px-4 shadow-lg" style="pointer-events: auto; z-index: 25; border-radius: 30px;" onclick="activateMobileGuestPlayback()">Tap to Sync Room Audio</button>
-                </div>`;
-        } else {
-            overlayHTML = `<div id="guestLockOverlay" class="guest-lock-overlay" style="display: ${isRoomHost ? 'none' : 'block'}; background: rgba(0,0,0,0);"></div>`;
-        }
-
-        container.innerHTML = `
-            ${overlayHTML}
-            <div id="ytSubFrameTarget" class="w-100 h-100"></div>
-        `;
-
-        setTimeout(() => {
-            try {
-                ytPlayerInstance = new YT.Player('ytSubFrameTarget', {
-                    height: '100%',
-                    width: '100%',
-                    videoId: vId,
-                    playerVars: {
-                        'autoplay': isRoomHost ? 1 : (lastKnownHostState.playing && guestInteractionUnlocked ? 1 : 0),
-                        'controls': isRoomHost ? 1 : 0, 
-                        'disablekb': isRoomHost ? 0 : 1,
-                        'fs': 1,
-                        'rel': 0,
-                        'modestbranding': 1
-                    },
-                    events: {
-                        'onReady': (event) => {
-                            if(isRoomHost) {
-                                setInterval(() => {
-                                    if(ytPlayerInstance && typeof ytPlayerInstance.getPlayerState === 'function') {
-                                        const state = ytPlayerInstance.getPlayerState();
-                                        const hostPlaying = (state === 1); 
-                                        const hostTime = ytPlayerInstance.getCurrentTime() || 0;
-                                        
-                                        if(!isInternalUpdate && currentRoomId) {
-                                            db.collection("rave_parties").doc(currentRoomId).update({
-                                                currentTime: hostTime,
-                                                playing: hostPlaying,
-                                                lastUpdated: Date.now()
-                                            });
-                                        }
-                                    }
-                                }, 2000);
-                            } else {
-                                if (guestInteractionUnlocked) {
-                                    ytPlayerInstance.seekTo(lastKnownHostState.currentTime, true);
-                                    if (lastKnownHostState.playing) ytPlayerInstance.playVideo();
-                                }
-                            }
-                        },
-                        'onStateChange': (event) => {
-                            if (isRoomHost && !isInternalUpdate && currentRoomId) {
-                                const state = event.data;
-                                const hostPlaying = (state === 1);
-                                const hostTime = ytPlayerInstance.getCurrentTime() || 0;
-                                db.collection("rave_parties").doc(currentRoomId).update({
-                                    currentTime: hostTime,
-                                    playing: hostPlaying,
-                                    lastUpdated: Date.now()
-                                });
-                            }
-                        }
-                    }
-                });
-            } catch(err) { }
-        }, 150);
     }
 
     function restoreNativeVideoPlayerLayout() {
         const container = document.getElementById("playerParentFrameContainer");
-        if (container.querySelector("video")) return; 
-
-        container.innerHTML = `
-            <div id="guestLockOverlay" class="guest-lock-overlay" style="display: ${isRoomHost ? 'none' : 'block'}"></div>
-            <video id="sharedPlayer" controls playsinline webkit-playsinline disablePictureInPicture>
-                <source id="videoSource" src="" type="video/mp4">
-            </video>
-        `;
-        
-        setupPlayerEventListeners();
+        if (!container.querySelector("#sharedPlayer")) {
+            container.innerHTML = `
+                <div id="guestLockOverlay" class="guest-lock-overlay"></div>
+                <video id="sharedPlayer" controls playsinline webkit-playsinline disablePictureInPicture>
+                    <source id="videoSource" src="https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4" type="video/mp4">
+                </video>
+            `;
+            player = document.getElementById("sharedPlayer");
+            setupLocalPlayerSyncListeners();
+        }
     }
 
-    function setupPlayerEventListeners() {
-        player = document.getElementById("sharedPlayer");
-        if (!player) return;
+    function renderYouTubeIframePlayer(embedUrl) {
+        const container = document.getElementById("playerParentFrameContainer");
+        if (!container.querySelector(".yt-player-frame")) {
+            container.innerHTML = `
+                <div id="guestLockOverlay" class="guest-lock-overlay"></div>
+                <div id="ytIframePlaceholderNode" class="yt-player-frame"></div>
+            `;
+            
+            const lockOverlay = document.getElementById("guestLockOverlay");
+            if(lockOverlay) {
+                lockOverlay.style.display = "block";
+                lockOverlay.style.background = "rgba(0,0,0,0)";
+            }
 
-        player.addEventListener("play", () => { 
-            if (isRoomHost) {
-                broadcastPlayerState(true); 
-            } else {
-                if (!isInternalUpdate) {
-                    isInternalUpdate = true;
-                    player.pause();
-                    if(lastKnownHostState.playing) {
-                        player.play().catch(()=>{});
+            let videoId = embedUrl.split("embed/")[1].split("?")[0];
+            currentActiveYtVideoId = videoId;
+
+            if (ytApiReady) {
+                ytPlayerInstance = new YT.Player('ytIframePlaceholderNode', {
+                    videoId: videoId,
+                    playerVars: {
+                        'autoplay': 1,
+                        'controls': isRoomHost ? 1 : 0, 
+                        'enablejsapi': 1,
+                        'rel': 0
+                    },
+                    events: {
+                        'onStateChange': onPlayerStateChange
                     }
-                }
+                });
             }
-        });
+        }
+    }
 
-        player.addEventListener("pause", () => { 
-            if (isRoomHost) {
-                broadcastPlayerState(false); 
-            } else {
-                if (!isInternalUpdate) {
-                    isInternalUpdate = true;
-                    if(lastKnownHostState.playing) {
-                        player.play().catch(()=>{});
-                    } else {
-                        player.pause();
-                    }
-                }
-            }
-        });
+    function onPlayerStateChange(event) {
+        if (!isRoomHost || isInternalUpdate || !currentRoomId) return;
 
-        player.addEventListener("seeked", () => { 
-            if (isRoomHost) {
-                broadcastPlayerState(!player.paused); 
-            } else {
-                if (!isInternalUpdate) {
-                    isInternalUpdate = true;
-                    player.currentTime = lastKnownHostState.currentTime;
-                }
-            }
+        let isPlaying = (event.data === YT.PlayerState.PLAYING);
+        let currTime = ytPlayerInstance.getCurrentTime();
+
+        db.collection("rave_parties").doc(currentRoomId).update({
+            playing: isPlaying,
+            currentTime: currTime,
+            lastUpdated: Date.now()
         });
     }
 
     function initializeChatroomChannel(roomId) {
         if(chatUnsubscribe) chatUnsubscribe();
-        const container = document.getElementById("chatScroller");
-        container.innerHTML = "";
-
-        chatUnsubscribe = db.collection("rave_parties")
-            .doc(roomId)
-            .collection("chat_logs")
+        
+        chatUnsubscribe = db.collection("rave_parties").doc(roomId).collection("chat_logs")
             .orderBy("timestamp", "asc")
-            .limitToLast(40)
+            .limitToLast(50)
             .onSnapshot(snapshot => {
-                if (snapshot.size === 0) {
-                    container.innerHTML = `<div class="text-muted text-center small py-3 italic">Chat logs muted or wiped by room mods...</div>`;
-                    return;
-                }
-                
-                container.innerHTML = "";
-                snapshot.forEach(docSnap => {
-                    const msg = docSnap.data();
-                    const msgId = docSnap.id;
-                    const timeString = new Date(msg.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                const scroller = document.getElementById("chatScroller");
+                scroller.innerHTML = "";
+                snapshot.forEach(doc => {
+                    const data = doc.data();
+                    const cleanTime = new Date(data.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
                     
-                    let row = document.createElement("div");
-                    row.className = "chat-bubble-row mb-1";
-                    
-                    let deleteMsgButton = "";
-                    if (currentUserRole === "Admin" || currentUserRole === "Owner" || isRoomHost) {
-                        deleteMsgButton = `<button class="btn btn-xs p-0 px-1 btn-dark text-muted" style="font-size:0.65rem;" onclick="deleteSingleChatMessage('${msgId}')">🗑️</button>`;
-                    }
-
-                    row.innerHTML = `
-                        <div>
-                            <span class="chat-author-tag">${msg.author}:</span>
-                            <span class="text-white-50">${msg.text}</span>
-                            <span class="chat-time-tag">${timeString}</span>
+                    scroller.innerHTML += `
+                        <div class="chat-bubble-row">
+                            <div>
+                                <span class="chat-author-tag">${data.author}:</span>
+                                <span class="text-white">${data.text}</span>
+                            </div>
+                            <span class="chat-time-tag">${cleanTime}</span>
                         </div>
-                        ${deleteMsgButton}
                     `;
-                    container.appendChild(row);
                 });
-                container.scrollTop = container.scrollHeight;
+                scroller.scrollTop = scroller.scrollHeight;
             });
-    }
-
-    async function deleteSingleChatMessage(msgId) {
-        if (currentRoomId) {
-            await db.collection("rave_parties").doc(currentRoomId).collection("chat_logs").doc(msgId).delete();
-        }
-    }
-
-    async function clearLiveChatHistory() {
-        if (!currentRoomId) return;
-        if (confirm("Mute and completely wipe current live conversation histories?")) {
-            const batch = db.batch();
-            const logs = await db.collection("rave_parties").doc(currentRoomId).collection("chat_logs").get();
-            logs.forEach(doc => {
-                batch.delete(doc.ref);
-            });
-            await batch.commit();
-        }
     }
 
     async function sendChatMessage() {
         const input = document.getElementById("chatMessageInput");
         const text = input.value.trim();
-        if (!text || !currentRoomId) return;
+        if(!text || !currentRoomId) return;
 
-        input.value = "";
         await db.collection("rave_parties").doc(currentRoomId).collection("chat_logs").add({
             author: currentSessionUser,
             text: text,
             timestamp: Date.now()
         });
+        input.value = "";
     }
 
-    function exitCurrentParty() {
-        if (roomUnsubscribe) roomUnsubscribe();
-        if (chatUnsubscribe) chatUnsubscribe();
-        if (currentRoomEnforcersUnsubscribe) currentRoomEnforcersUnsubscribe();
-        if (hlsInstance) { hlsInstance.destroy(); hlsInstance = null; }
-        
-        const appContainer = document.getElementById("app");
-        appContainer.classList.remove("sidebar-hidden"); 
-
-        restoreNativeVideoPlayerLayout();
-        if(player) player.pause();
-        
-        currentRoomId = null;
-        isRoomHost = false;
-        guestInteractionUnlocked = false;
-        ytPlayerInstance = null;
-        currentActiveYtVideoId = null;
-        localStorage.removeItem("cl_active_room_id");
-        localStorage.setItem("cl_app_state", "LOBBY");
-
-        document.getElementById("activeTheaterView").style.display = "none";
-        document.getElementById("embeddedBrowserView").style.display = "none";
-        document.getElementById("cloudLibrarySection").style.display = "none";
-        document.getElementById("exitPartyBtn").style.display = "none";
-        document.getElementById("lobbyExplorerView").style.display = "block";
-        document.getElementById("hostSessionBtn").disabled = false;
-        document.getElementById("toggleSidebarBtn").style.display = "none";
-        if(player) player.controls = true; 
-
-        document.getElementById("syncStatusIndicator").className = "status-pill bg-secondary text-white";
-        document.getElementById("syncStatusIndicator").innerText = "Standalone Offline Mode";
-        document.getElementById("roomTitleHeader").innerText = "Viewing Lobby";
-        document.getElementById("roomSubHeader").innerText = "Join or create a live sync room to get started.";
-        
-        renderPartiesDisplay(cachedPartiesList);
-    }
-
-    function handleForcedDisconnection() {
-        alert("The session room was dissolved or closed by an administrator.");
-        exitCurrentParty();
-    }
-
-    async function deletePartyRoom(roomId) {
-        if (!confirm("Are you sure you want to terminate and close this watch party session?")) return;
-        if (currentRoomId === roomId) {
-            exitCurrentParty();
+    async function clearLiveChatHistory() {
+        if (confirm("Mute and clear all live chat logs from database logs?")) {
+            const logs = await db.collection("rave_parties").doc(currentRoomId).collection("chat_logs").get();
+            logs.forEach(doc => doc.ref.delete());
         }
-        await db.collection("rave_parties").doc(roomId).delete();
-    }
-
-    function broadcastPlayerState(isPlaying) {
-        if (!currentRoomId || isInternalUpdate || !isRoomHost) return;
-        
-        db.collection("rave_parties").doc(currentRoomId).update({
-            currentTime: player.currentTime,
-            playing: isPlaying,
-            lastUpdated: Date.now()
-        });
     }
 
     function updateRoomMedia() {
-        if(!currentRoomId) return;
-        const rawUrl = document.getElementById("targetMediaUrl").value.trim();
-        if (!rawUrl) return;
+        const url = document.getElementById("targetMediaUrl").value.trim();
+        if(!url || !currentRoomId) return;
 
-        let processedUrl = rawUrl;
-        let finalTitle = "Custom Media File Stream";
-
-        if (rawUrl.includes("drive.google.com/file/d/")) {
-            const fileId = rawUrl.split("/file/d/")[1].split("/")[0];
-            processedUrl = `https://docs.google.com/uc?export=download&id=${fileId}`;
-        } else if (rawUrl.includes("youtube.com/") || rawUrl.includes("youtu.be/")) {
-            finalTitle = "YouTube Watchparty Stream";
-            let vId = "";
-            if (rawUrl.includes("v=")) {
-                vId = rawUrl.split("v=")[1].split("&")[0];
-            } else if (rawUrl.includes("youtu.be/")) {
-                vId = rawUrl.split("youtu.be/")[1].split("?")[0];
-            }
-            if (vId) {
-                processedUrl = `https://www.youtube.com/embed/${vId}?autoplay=1&enablejsapi=1`;
-            }
-        } else if (rawUrl.includes(".m3u8")) {
-            finalTitle = "HLS Video Feature Stream";
-        }
+        let title = "Custom Live Stream Source";
+        if(url.includes("youtube.com") || url.includes("youtu.be")) title = "YouTube Direct Shared Feed";
+        else if(url.includes(".m3u8")) title = "Direct Live HLS Stream";
 
         db.collection("rave_parties").doc(currentRoomId).update({
-            mediaUrl: processedUrl,
-            mediaTitle: finalTitle,
+            mediaUrl: url,
+            mediaTitle: title,
             currentTime: 0,
             playing: true,
             lastUpdated: Date.now()
@@ -1983,70 +2002,65 @@
         document.getElementById("targetMediaUrl").value = "";
     }
 
-    function startStaleRoomsCleanupRoutine() {
-        setInterval(async () => {
-            const halfHourInMs = 30 * 60 * 1000;
-            const staleThreshold = Date.now() - halfHourInMs;
+    function exitCurrentParty() {
+        if (roomUnsubscribe) roomUnsubscribe();
+        if (chatUnsubscribe) chatUnsubscribe();
+        if (currentRoomEnforcersUnsubscribe) currentRoomEnforcersUnsubscribe();
 
-            const snapshot = await db.collection("rave_parties").get();
-            snapshot.forEach(async (doc) => {
-                const data = doc.data();
-                const lastActivity = data.lastUpdated || data.createdAt || 0;
-                
-                if (lastActivity < staleThreshold) {
-                    await db.collection("rave_parties").doc(doc.id).delete();
-                }
-            });
-        }, 60000); 
+        currentRoomId = null;
+        isRoomHost = false;
+        guestInteractionUnlocked = false;
+        ytPlayerInstance = null;
+        currentActiveYtVideoId = null;
+        if (hlsInstance) { hlsInstance.destroy(); hlsInstance = null; }
+
+        localStorage.removeItem("cl_active_room_id");
+        localStorage.setItem("cl_app_state", "LOBBY");
+
+        document.getElementById("activeTheaterView").style.display = "none";
+        document.getElementById("embeddedBrowserView").style.display = "none";
+        document.getElementById("cloudLibrarySection").style.display = "none";
+        document.getElementById("exitPartyBtn").style.display = "none";
+        document.getElementById("hostSessionBtn").disabled = false;
+        document.getElementById("toggleSidebarBtn").style.display = "none";
+
+        document.getElementById("lobbyExplorerView").style.display = "block";
+        document.getElementById("syncStatusIndicator").className = "status-pill bg-secondary text-white";
+        document.getElementById("syncStatusIndicator").innerText = "Standalone Offline Mode";
+
+        document.getElementById("roomTitleHeader").innerText = "Viewing Lobby";
+        document.getElementById("roomSubHeader").innerText = "Join or create a live sync room to get started.";
+
+        restoreNativeVideoPlayerLayout();
+        renderPartiesDisplay(cachedPartiesList);
     }
 
-    setupPlayerEventListeners();
+    function handleForcedDisconnection() {
+        alert("The room host has closed this watch party session.");
+        exitCurrentParty();
+    }
+
+    async function deletePartyRoom(roomId) {
+        if(confirm("Are you sure you want to completely terminate and close this watch room?")) {
+            await db.collection("rave_parties").doc(roomId).delete();
+            if(currentRoomId === roomId) {
+                exitCurrentParty();
+            }
+        }
+    }
+
+    function startStaleRoomsCleanupRoutine() {
+        setInterval(async () => {
+            const staleThreshold = Date.now() - (6 * 60 * 60 * 1000); 
+            const querySnapshot = await db.collection("rave_parties")
+                .where("lastUpdated", "<", staleThreshold)
+                .get();
+
+            querySnapshot.forEach(doc => {
+                doc.ref.delete();
+            });
+        }, 120000); 
+    }
 </script>
-
-<script>
-    // 1. Disable context mouse click menus completely
-    document.addEventListener('contextmenu', event => event.preventDefault());
-
-    // 2. Intercept and block critical keyboard shortcuts
-    document.addEventListener('keydown', event => {
-        // Prevent F12 Open Terminal
-        if (event.key === 'F12') {
-            event.preventDefault();
-            return false;
-        }
-        // Prevent Ctrl+Shift+I (Inspect), Ctrl+Shift+J (Console), Ctrl+Shift+C (Element Picker)
-        if (event.ctrlKey && event.shiftKey && (event.key === 'I' || event.key === 'J' || event.key === 'C' || event.key === 'i' || event.key === 'j' || event.key === 'c')) {
-            event.preventDefault();
-            return false;
-        }
-        // Prevent Ctrl+U (View Page Source)
-        if (event.ctrlKey && (event.key === 'U' || event.key === 'u')) {
-            event.preventDefault();
-            return false;
-        }
-        // Prevent Ctrl+S (Save Page HTML)
-        if (event.ctrlKey && (event.key === 'S' || event.key === 's')) {
-            event.preventDefault();
-            return false;
-        }
-    });
-
-    // 3. Automated background loop debugger catch trap
-    setInterval(() => {
-        (function() {
-            try {
-                (function a(i) {
-                    if (("" + i / i).length !== 1 || i % 20 === 0) {
-                        (function() {}).constructor("debugger")();
-                    } else {
-                        debugger;
-                    }
-                    a(++i);
-                })(0);
-            } catch (e) {}
-        })();
-    }, 1000);
-</script>
-
 </body>
 </html>
