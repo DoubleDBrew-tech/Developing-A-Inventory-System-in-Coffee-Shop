@@ -796,9 +796,15 @@
                     
                     <!-- Integrated Google Drive Inner Sanctum Sync Bar -->
                     <div class="bg-black p-2 rounded border border-secondary mx-auto w-100" style="max-width: 550px;">
-                        <div class="input-label-tag small mb-1 text-center">Stream Google Drive Video directly to Leigh Room:</div>
+                        <div class="input-label-tag small mb-2 text-center text-info font-monospace">⚡ RAVE DRIVE PLAYER SYSTEM:</div>
+                        <button class="btn btn-primary btn-sm w-100 fw-bold mb-2 py-2 d-flex align-items-center justify-content-center gap-2" onclick="handleGoogleDriveBrowse()">
+                            <img src="https://upload.wikimedia.org/wikipedia/commons/1/12/Google_Drive_icon_%282020%29.svg" alt="Drive" style="width:18px;">
+                            🎬 Rave Sign-In & Select Movie
+                        </button>
+                        <hr class="border-secondary my-2">
+                        <div class="input-label-tag small mb-1 text-center">Or Paste Direct Google Drive Link Manually:</div>
                         <div class="input-group input-group-sm">
-                            <input type="text" id="sanctuaryGDriveUrlInput" class="form-control bg-dark text-white border-secondary" placeholder="Paste direct streaming Google Drive link...">
+                            <input type="text" id="sanctuaryGDriveUrlInput" class="form-control bg-dark text-white border-secondary" placeholder="Paste manual direct streaming Google Drive link...">
                             <button class="btn btn-primary btn-sm fw-bold px-3" onclick="loadSanctuaryGDriveVideo()">Load & Autoplay</button>
                         </div>
                     </div>
@@ -926,7 +932,17 @@
 
             <!-- Google Drive Synchronized Link Container -->
             <div class="bg-dark p-2 rounded border border-secondary mb-2">
-                <div class="input-label-tag small mb-1">Shared Google Drive:</div>
+                <div class="input-label-tag small mb-1 text-info font-monospace">⚡ RAVE DRIVE CONTROLS:</div>
+                
+                <!-- Google Drive Rave Picker Login & Browse Interface -->
+                <button class="btn btn-primary btn-sm w-100 fw-bold mb-2 py-2 d-flex align-items-center justify-content-center gap-2" onclick="handleGoogleDriveBrowse()">
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/1/12/Google_Drive_icon_%282020%29.svg" alt="Drive" style="width:18px;">
+                    🎬 Rave Sign-In & Stream
+                </button>
+                
+                <hr class="border-secondary my-2">
+                
+                <div class="input-label-tag small mb-1">Or Paste Manual Shared Link:</div>
                 <div class="input-group input-group-sm mb-2">
                     <input type="text" id="gdriveSharedSyncUrl" class="form-control bg-secondary text-white border-0" placeholder="Paste Drive link...">
                     <button class="btn btn-primary btn-sm" onclick="syncGDriveSharedUrl()">Link</button>
@@ -1101,6 +1117,14 @@
     let isCamOff = false;
     let webrtcUnsubscribe = null;
 
+    // --- Rave Google Drive Picker State Variables ---
+    // Note: To utilize the Rave Drive picker with custom credentials, replace the placeholders below.
+    const GD_CLIENT_ID = "855421295326-placeholder.apps.googleusercontent.com"; 
+    const GD_API_KEY = "AIzaSyA-placeholder-apikey";
+    let gdAccessToken = null;
+    let pickerApiLoaded = false;
+    let gisLoaded = false;
+
     if (!window.YT) {
         const tag = document.createElement('script');
         tag.src = "https://www.youtube.com/iframe_api";
@@ -1116,6 +1140,7 @@
         evaluateStoredSessionPersistenceState();
         listenToEmbeddedBrowserNavigationCycles();
         setupLocalPlayerSyncListeners();
+        loadGoogleAuthenticationApis(); // Dynamic lazy script loader for GIS and GAPI
     });
 
     window.addEventListener("beforeunload", () => {
@@ -1123,6 +1148,117 @@
             db.collection("app_users").doc(currentSessionUser).update({ online: false });
         }
     });
+
+    // --- Lazy Dynamic Background Script Loader for Google Picker & Identity Services ---
+    function loadGoogleAuthenticationApis() {
+        // Load GAPI client library
+        const gapiScript = document.createElement('script');
+        gapiScript.src = 'https://apis.google.com/js/api.js';
+        gapiScript.async = true;
+        gapiScript.defer = true;
+        gapiScript.onload = () => {
+            gapi.load('picker', () => {
+                pickerApiLoaded = true;
+            });
+        };
+        document.body.appendChild(gapiScript);
+
+        // Load GIS (Google Identity Services)
+        const gisScript = document.createElement('script');
+        gisScript.src = 'https://accounts.google.com/gsi/client';
+        gisScript.async = true;
+        gisScript.defer = true;
+        gisScript.onload = () => {
+            gisLoaded = true;
+        };
+        document.body.appendChild(gisScript);
+    }
+
+    // --- Google Drive Rave Picker Implementation Engine ---
+    function handleGoogleDriveBrowse() {
+        if (!currentRoomId && localStorage.getItem("cl_active_route") !== "SANCTUARY") {
+            return alert("Please join or host a live room session first!");
+        }
+        
+        if (gdAccessToken) {
+            launchRavePicker();
+        } else {
+            if (!gisLoaded) {
+                return alert("Google Services are initializing. Please wait a few seconds and try again.");
+            }
+            
+            try {
+                const tokenClient = google.accounts.oauth2.initTokenClient({
+                    client_id: GD_CLIENT_ID,
+                    scope: 'https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/drive.metadata.readonly',
+                    callback: (response) => {
+                        if (response.error !== undefined) {
+                            console.error(response);
+                            alert("Authentication failed: " + response.error_description || response.error);
+                            return;
+                        }
+                        gdAccessToken = response.access_token;
+                        launchRavePicker();
+                    },
+                });
+                tokenClient.requestAccessToken({ prompt: 'consent' });
+            } catch (err) {
+                console.error(err);
+                alert("Error launching auth client. Ensure you have added your valid Client ID.");
+            }
+        }
+    }
+
+    function launchRavePicker() {
+        if (pickerApiLoaded && gdAccessToken) {
+            const view = new google.picker.View(google.picker.ViewId.DOCS);
+            // Restrict target documents explicitly to common playable web video codecs
+            view.setMimeTypes("video/mp4,video/webm,video/x-matroska,video/quicktime,video/ogg");
+            
+            const picker = new google.picker.PickerBuilder()
+                .addView(view)
+                .setOAuthToken(gdAccessToken)
+                .setDeveloperKey(GD_API_KEY)
+                .setCallback(ravePickerCallback)
+                .setTitle("Select WatchParty Movie File from Drive")
+                .build();
+            picker.setVisible(true);
+        } else {
+            alert("Google Picker module not initialized. Please try again.");
+        }
+    }
+
+    async function ravePickerCallback(data) {
+        if (data[google.picker.Response.ACTION] == google.picker.Action.PICKED) {
+            const doc = data[google.picker.Response.DOCUMENTS][0];
+            const fileId = doc[google.picker.Document.ID];
+            const fileName = doc[google.picker.Document.NAME];
+            
+            // Resolve directly playable public stream path
+            const resolvedDirectStreamUrl = `https://docs.google.com/uc?export=download&id=${fileId}`;
+
+            // Check if user is navigating inside Leigh's Private Sanctuary Room or Normal Room
+            if (localStorage.getItem("cl_active_route") === "SANCTUARY") {
+                await db.collection("sanctuary_media").doc("global_state").set({
+                    activeUrl: resolvedDirectStreamUrl,
+                    source: "gdrive",
+                    timestamp: Date.now()
+                });
+                alert(`✨ Now streaming inside Leigh's Sanctuary: \n🎬 "${fileName}" \n\n⚠️ Ensure your movie permission is configured as "Anyone with the link can view" on Google Drive so Leigh's player can load the feed!`);
+            } else {
+                // Normal Room Sync
+                await db.collection("rave_parties").doc(currentRoomId).update({
+                    mediaUrl: resolvedDirectStreamUrl,
+                    mediaTitle: fileName,
+                    currentTime: 0,
+                    playing: true,
+                    lastUpdated: Date.now()
+                });
+                alert(`✨ Successfully streaming to your room: \n🎬 "${fileName}" \n\n⚠️ Ensure your movie permission is configured as "Anyone with the link can view" on Google Drive so other watch party members can sync stream!`);
+                returnToTheaterLayoutView();
+            }
+        }
+    }
 
     async function evaluateStoredSessionPersistenceState() {
         const savedUser = localStorage.getItem("cl_active_user");
@@ -2443,7 +2579,7 @@
         }
 
         if (src === 'gdrive') {
-            window.open("https://drive.google.com", "_blank");
+            handleGoogleDriveBrowse();
             return;
         }
 
