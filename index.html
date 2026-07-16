@@ -267,7 +267,7 @@
 
         .drive-btn {
             background: #25252e;
-            border: 1px dashed #4b4b5e;
+            border: 1px solid #4b4b5e;
             color: #e5e7eb;
             display: flex;
             align-items: center;
@@ -278,6 +278,7 @@
             width: 100%;
             transition: all 0.2s ease;
             text-decoration: none !important;
+            cursor: pointer;
         }
 
         .drive-btn:hover {
@@ -912,10 +913,18 @@
                 <div class="rido-cool-text">Rido<span>Movies</span></div>
             </div>
 
-            <a href="https://drive.google.com/" target="_blank" class="drive-btn mb-3">
-                <img src="https://upload.wikimedia.org/wikipedia/commons/1/12/Google_Drive_icon_%282020%29.svg" alt="Drive" style="width:20px;">
-                <span>Open Google Drive</span>
-            </a>
+            <!-- Google Drive Synchronized Link Container -->
+            <div class="bg-dark p-2 rounded border border-secondary mb-2">
+                <div class="input-label-tag small mb-1">Shared Google Drive:</div>
+                <div class="input-group input-group-sm mb-2">
+                    <input type="text" id="gdriveSharedSyncUrl" class="form-control bg-secondary text-white border-0" placeholder="Paste Drive link...">
+                    <button class="btn btn-primary btn-sm" onclick="syncGDriveSharedUrl()">Link</button>
+                </div>
+                <button id="gdriveLaunchBtn" class="drive-btn" onclick="openSharedGDriveUrl()">
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/1/12/Google_Drive_icon_%282020%29.svg" alt="Drive" style="width:20px;">
+                    <span id="gdriveLaunchText">Open Google Drive</span>
+                </button>
+            </div>
         </div>
         
         <div class="section-title">Library Manager</div>
@@ -1108,6 +1117,7 @@
         const savedUser = localStorage.getItem("cl_active_user");
         const savedRoom = localStorage.getItem("cl_active_room_id");
         const appState = localStorage.getItem("cl_app_state");
+        const activeRoute = localStorage.getItem("cl_active_route");
 
         if (savedUser) {
             currentSessionUser = savedUser;
@@ -1121,8 +1131,15 @@
 
             document.getElementById("authScreen").style.display = "none";
             document.getElementById("welcomeScreen").style.display = "none";
-            document.getElementById("app").style.display = "grid";
-            document.getElementById("app").style.opacity = "1";
+            
+            if (activeRoute === "SANCTUARY") {
+                document.getElementById("app").style.display = "grid";
+                document.getElementById("app").style.opacity = "1";
+                openILabLeighPrivateSanctuary(true); 
+            } else {
+                document.getElementById("app").style.display = "grid";
+                document.getElementById("app").style.opacity = "1";
+            }
             
             setUserOnlinePresenceState(currentSessionUser, true);
             listenForGlobalParties();
@@ -1334,6 +1351,32 @@
         field.type = field.type === "password" ? "text" : "password";
     }
 
+    // --- Cloud Synchronized Google Drive File System Link ---
+    async function syncGDriveSharedUrl() {
+        if (!currentRoomId) return alert("Please host or join a room first to sync Drive links!");
+        const rawDriveUrl = document.getElementById("gdriveSharedSyncUrl").value.trim();
+        if (!rawDriveUrl) return alert("Please type or paste a valid link target first.");
+        if (!rawDriveUrl.includes("drive.google.com")) {
+            return alert("Invalid domain setup. Only official google drive link formats can be parsed.");
+        }
+
+        await db.collection("rave_parties").doc(currentRoomId).update({
+            gdriveSyncedLink: rawDriveUrl,
+            lastUpdated: Date.now()
+        });
+        document.getElementById("gdriveSharedSyncUrl").value = "";
+        alert("Google Drive target successfully synchronized with room members!");
+    }
+
+    function openSharedGDriveUrl() {
+        const currentTargetUrl = document.getElementById("gdriveLaunchBtn").getAttribute("data-target-url");
+        if (currentTargetUrl && currentTargetUrl !== "https://drive.google.com/") {
+            window.open(currentTargetUrl, "_blank");
+        } else {
+            window.open("https://drive.google.com/", "_blank");
+        }
+    }
+
     function toggleAuthViews(target) {
         document.getElementById("loginFormBlock").style.display = target === 'login' ? 'block' : 'none';
         document.getElementById("registerFormBlock").style.display = target === 'register' ? 'block' : 'none';
@@ -1460,9 +1503,16 @@
     }
 
     // --- Private Sanctuary Interstitial Welcoming Page Trigger ---
-    function openILabLeighPrivateSanctuary() {
+    function openILabLeighPrivateSanctuary(bypassAnimation = false) {
         if (currentUserRole !== "Admin" && currentUserRole !== "Owner") {
             return alert("Locked: The Private Sanctuary is strictly available only for Room Admins and Leigh.");
+        }
+
+        localStorage.setItem("cl_active_route", "SANCTUARY");
+
+        if (bypassAnimation) {
+            proceedToSanctuaryActualRoom();
+            return;
         }
 
         const welcomeOverlay = document.getElementById("sanctuaryWelcomingOverlay");
@@ -1502,6 +1552,7 @@
 
     function closeAdminPanel() {
         document.getElementById("adminRevealBlock").style.display = "none";
+        localStorage.setItem("cl_active_route", "THEATER");
         if (sanctuaryChatUnsubscribe) {
             sanctuaryChatUnsubscribe();
             sanctuaryChatUnsubscribe = null;
@@ -1646,6 +1697,7 @@
             document.getElementById("app").style.display = "grid";
             setTimeout(() => { document.getElementById("app").style.opacity = "1"; }, 50);
             localStorage.setItem("cl_app_state", "LOBBY");
+            localStorage.setItem("cl_active_route", "LOBBY");
             listenForGlobalParties();
             listenToGlobalMembersDirectory();
             startStaleRoomsCleanupRoutine();
@@ -1870,7 +1922,8 @@
             currentTime: 0,
             playing: false,
             createdAt: Date.now(),
-            lastUpdated: Date.now()
+            lastUpdated: Date.now(),
+            gdriveSyncedLink: ""
         });
         connectToPartyRoom(newPartyRef.id);
     }
@@ -1883,6 +1936,9 @@
         currentRoomId = roomId;
         localStorage.setItem("cl_active_room_id", roomId);
         localStorage.setItem("cl_app_state", "THEATER");
+        if (localStorage.getItem("cl_active_route") !== "SANCTUARY") {
+            localStorage.setItem("cl_active_route", "THEATER");
+        }
 
         document.getElementById("lobbyExplorerView").style.display = "none";
         document.getElementById("activeTheaterView").style.display = "block";
@@ -1922,6 +1978,21 @@
 
             document.getElementById("roomTitleHeader").innerText = `${data.hostName}'s Watch Space`;
             document.getElementById("roomSubHeader").innerText = `Syncing Target: ${data.mediaTitle}`;
+
+            // Real-time Drive Sync Link Setup
+            const driveLaunchBtn = document.getElementById("gdriveLaunchBtn");
+            const driveLaunchText = document.getElementById("gdriveLaunchText");
+            if (data.gdriveSyncedLink) {
+                driveLaunchBtn.setAttribute("data-target-url", data.gdriveSyncedLink);
+                driveLaunchBtn.style.borderColor = "#4285f4";
+                driveLaunchBtn.style.background = "rgba(66, 133, 244, 0.15)";
+                driveLaunchText.innerHTML = "<b>Open Synced Drive</b>";
+            } else {
+                driveLaunchBtn.setAttribute("data-target-url", "https://drive.google.com/");
+                driveLaunchBtn.style.borderColor = "#4b4b5e";
+                driveLaunchBtn.style.background = "#25252e";
+                driveLaunchText.innerHTML = "Open Google Drive";
+            }
 
             let dynamicMediaControlAuthorized = isRoomHost || currentUserRole === "Admin" || currentUserRole === "Owner";
 
@@ -2219,6 +2290,7 @@
         if (hlsInstance) { hlsInstance.destroy(); hlsInstance = null; }
 
         localStorage.setItem("cl_app_state", "LOBBY");
+        localStorage.setItem("cl_active_route", "LOBBY");
         localStorage.removeItem("cl_active_room_id");
 
         document.getElementById("activeTheaterView").style.display = "none";
