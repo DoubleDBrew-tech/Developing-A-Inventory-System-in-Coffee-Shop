@@ -669,6 +669,12 @@
             padding: 20px;
             z-index: 8;
         }
+
+        /* --- Force Google Picker Overlays to the front --- */
+        .picker-dialog, 
+        .picker-dialog-bg {
+            z-index: 30000 !important;
+        }
     </style>
 </head>
 <body>
