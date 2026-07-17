@@ -1002,7 +1002,8 @@
                     <div class="video-container mb-3" id="playerParentFrameContainer">
                         <div id="guestLockOverlay" class="guest-lock-overlay"></div>
                         <video id="sharedPlayer" controls playsinline webkit-playsinline disablePictureInPicture>
-                            <source id="videoSource" src="https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4" type="video/mp4">
+                            <!-- Removed the strict type="video/mp4" to allow browser checking of multiple extensions including .mkv files -->
+                            <source id="videoSource" src="https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4">
                         </video>
                     </div>
 
@@ -1118,8 +1119,9 @@
     let webrtcUnsubscribe = null;
 
     // --- Rave Google Drive Picker State Variables ---
+    // Note: To utilize the Rave Drive picker with custom credentials, replace the placeholders below.
     const GD_CLIENT_ID = "38184157713-v7h6itkro3aakknf0b1osse9hl7la42q.apps.googleusercontent.com"; 
-    const GD_API_KEY = "AIzaSyBsCLZWgE_I3yZWIR1F30Hj3hmt-H5SQ3o";
+    const GD_API_KEY = "AIzaSyA-placeholder-apikey";
     let gdAccessToken = null;
     let pickerApiLoaded = false;
     let gisLoaded = false;
@@ -1865,7 +1867,6 @@
         });
     }
 
-    // --- Active Client Account State Banishment Handshake Check ---
     function listenToSelfSecurityBanishmentStream() {
         if (currentSessionUser && currentSessionUser.toLowerCase() !== "leigh") {
             db.collection("app_users").doc(currentSessionUser).onSnapshot(doc => {
@@ -2522,149 +2523,25 @@
                         document.getElementById("sourceRequestGate").style.display = "none";
                         document.getElementById("youtubeLinkPromptGate").style.display = "none";
 
-                        // Handle Google Drive sources through HTML5 Video element instead of iFrames
-                        if (data.source === "gdrive" || data.activeUrl.includes("google.com/uc") || data.activeUrl.includes("export=download")) {
+                        // Handle Google Drive sources through HTML5 Video element instead of standard restricted iFrames
+                        if (data.source === "gdrive" || data.activeUrl.includes("docs.google.com/uc")) {
                             frame.style.display = "none";
-                            frame.src = ""; // Clean Frame context
+                            drivePlayer.style.display = "block";
                             
                             if (drivePlayer.src !== data.activeUrl) {
                                 drivePlayer.src = data.activeUrl;
-                                drivePlayer.style.display = "block";
                                 drivePlayer.load();
-                                drivePlayer.play().catch(() => {});
                             }
                         } else {
-                            // Standard Youtube / Iframe sources
                             drivePlayer.style.display = "none";
-                            drivePlayer.src = ""; // Clear drive player context
-                            
+                            frame.style.display = "block";
                             if (frame.src !== data.activeUrl) {
                                 frame.src = data.activeUrl;
-                                frame.style.display = "block";
                             }
                         }
                     }
                 }
             });
-    }
-
-    async function sendSanctuaryWhisper() {
-        const input = document.getElementById("sanctuaryChatInput");
-        const whisperVal = input.value.trim();
-        if (!whisperVal) return;
-
-        await db.collection("sanctuary_whispers").add({
-            author: currentSessionUser,
-            whisper: whisperVal,
-            timestamp: Date.now()
-        });
-        input.value = "";
-    }
-
-    // --- Dynamic YouTube, Netflix, Prime, & Drive Routing ---
-    function setSanctuarySource(src) {
-        sanctuaryActiveSource = src;
-        const requestGate = document.getElementById("sourceRequestGate");
-        const ytPromptGate = document.getElementById("youtubeLinkPromptGate");
-        const promptTitle = document.getElementById("sanctuaryPromptTitle");
-
-        if (src === 'netflix') {
-            window.open("https://www.netflix.com", "_blank");
-            return;
-        }
-
-        if (src === 'prime') {
-            window.open("https://www.primevideo.com", "_blank");
-            return;
-        }
-
-        if (src === 'gdrive') {
-            handleGoogleDriveBrowse();
-            return;
-        }
-
-        requestGate.style.display = "none";
-        document.getElementById("sanctuaryFrameNode").style.display = "none";
-        document.getElementById("sanctuaryDrivePlayerNode").style.display = "none";
-
-        if (src === 'youtube') {
-            promptTitle.innerText = "Load YouTube Video Link";
-            ytPromptGate.style.display = "flex";
-        }
-    }
-
-    // --- Inner Sanctum Private Google Drive Stream Resolution handler ---
-    async function loadSanctuaryGDriveVideo() {
-        const rawUrl = document.getElementById("sanctuaryGDriveUrlInput").value.trim();
-        if (!rawUrl) return alert("Please enter a valid Google Drive target link.");
-        if (!rawUrl.includes("drive.google.com") && !rawUrl.includes("docs.google.com")) {
-            return alert("Invalid domain setup. Make sure this is an official Google Drive layout link structure.");
-        }
-
-        let resolvedDirectUrl = rawUrl;
-        
-        // Auto-extract File ID structure from shared links to map target player endpoints
-        if (rawUrl.includes("/file/d/")) {
-            const parts = rawUrl.split("/file/d/");
-            if (parts[1]) {
-                const fileId = parts[1].split("/")[0];
-                resolvedDirectUrl = `https://docs.google.com/uc?export=download&id=${fileId}`;
-            }
-        } else if (rawUrl.includes("id=")) {
-            const parts = rawUrl.split("id=");
-            if (parts[1]) {
-                const fileId = parts[1].split("&")[0];
-                resolvedDirectUrl = `https://docs.google.com/uc?export=download&id=${fileId}`;
-            }
-        }
-
-        await db.collection("sanctuary_media").doc("global_state").set({
-            activeUrl: resolvedDirectUrl,
-            source: "gdrive",
-            timestamp: Date.now()
-        });
-        
-        document.getElementById("sanctuaryGDriveUrlInput").value = "";
-        alert("✨ Google Drive video successfully loaded!");
-    }
-
-    function cancelYtLinkInput() {
-        document.getElementById("youtubeLinkPromptGate").style.display = "none";
-    }
-
-    async function loadSanctuaryYoutubeVideo() {
-        const rawUrl = document.getElementById("sanctuaryYtUrlInput").value.trim();
-        if (!rawUrl) return alert("Please paste a valid YouTube URL first.");
-        
-        let vId = "";
-        if (rawUrl.includes("v=")) {
-            vId = rawUrl.split("v=")[1].split("&")[0];
-        } else if (rawUrl.includes("youtu.be/")) {
-            vId = rawUrl.split("youtu.be/")[1].split("?")[0];
-        } else if (rawUrl.includes("embed/")) {
-            vId = rawUrl.split("embed/")[1].split("?")[0];
-        }
-
-        if (vId) {
-            const processedUrl = `https://www.youtube.com/embed/${vId}?autoplay=1&enablejsapi=1`;
-            await db.collection("sanctuary_media").doc("global_state").set({
-                activeUrl: processedUrl,
-                source: "youtube",
-                timestamp: Date.now()
-            });
-            document.getElementById("sanctuaryYtUrlInput").value = "";
-            document.getElementById("youtubeLinkPromptGate").style.display = "none";
-        } else {
-            alert("Could not extract a valid YouTube video ID.");
-        }
-    }
-
-    function adjustVolumeMixerValues(val) {
-        console.log("Volume mixer set to:", val);
-        const drivePlayer = document.getElementById("sanctuaryDrivePlayerNode");
-        if (drivePlayer) {
-            drivePlayer.volume = val / 100;
-        }
     }
 </script>
 </body>
