@@ -1008,7 +1008,6 @@
                     <div class="video-container mb-3" id="playerParentFrameContainer">
                         <div id="guestLockOverlay" class="guest-lock-overlay"></div>
                         <video id="sharedPlayer" controls playsinline webkit-playsinline disablePictureInPicture>
-                            <!-- Removed the strict type="video/mp4" to allow browser checking of multiple extensions including .mkv files -->
                             <source id="videoSource" src="https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4">
                         </video>
                     </div>
@@ -1125,7 +1124,6 @@
     let webrtcUnsubscribe = null;
 
     // --- Rave Google Drive Picker State Variables ---
-    // Note: To utilize the Rave Drive picker with custom credentials, replace the placeholders below.
     const GD_CLIENT_ID = "38184157713-v7h6itkro3aakknf0b1osse9hl7la42q.apps.googleusercontent.com"; 
     const GD_API_KEY = "AIzaSyCeoDmHlgnOc97fyUwIAg0yoKo6bnP9sVA";
     let gdAccessToken = null;
@@ -1147,7 +1145,7 @@
         evaluateStoredSessionPersistenceState();
         listenToEmbeddedBrowserNavigationCycles();
         setupLocalPlayerSyncListeners();
-        loadGoogleAuthenticationApis(); // Dynamic lazy script loader for GIS and GAPI
+        loadGoogleAuthenticationApis(); 
     });
 
     window.addEventListener("beforeunload", () => {
@@ -1156,9 +1154,100 @@
         }
     });
 
+    // --- Robust YouTube Video ID Extraction Helper Function ---
+    function extractYoutubeId(url) {
+        if (!url) return null;
+        const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=|shorts\/)([^#\&\?]*).*/;
+        const match = url.match(regExp);
+        return (match && match[2].length === 11) ? match[2] : null;
+    }
+
+    // --- Private Sanctuary Control Engine Action Layout Triggers ---
+    function setSanctuarySource(source) {
+        sanctuaryActiveSource = source;
+        if (source === 'youtube' || source === 'netflix' || source === 'prime') {
+            document.getElementById("sanctuaryPromptTitle").innerText = `Load ${source.toUpperCase()} Link`;
+            document.getElementById("youtubeLinkPromptGate").style.display = "flex";
+        } else if (source === 'gdrive') {
+            document.getElementById("youtubeLinkPromptGate").style.display = "none";
+        }
+    }
+
+    function cancelYtLinkInput() {
+        document.getElementById("youtubeLinkPromptGate").style.display = "none";
+    }
+
+    async function loadSanctuaryYoutubeVideo() {
+        const rawUrl = document.getElementById("sanctuaryYtUrlInput").value.trim();
+        if (!rawUrl) return alert("Please enter a valid link target layout.");
+
+        let processedUrl = rawUrl;
+        if (sanctuaryActiveSource === 'youtube') {
+            let vId = extractYoutubeId(rawUrl);
+            if (vId) {
+                processedUrl = `https://www.youtube.com/embed/${vId}?autoplay=1&enablejsapi=1`;
+            } else {
+                return alert("Could not parse a valid YouTube ID from that link structure.");
+            }
+        }
+
+        await db.collection("sanctuary_media").doc("global_state").set({
+            activeUrl: processedUrl,
+            source: sanctuaryActiveSource,
+            timestamp: Date.now()
+        });
+
+        document.getElementById("sanctuaryYtUrlInput").value = "";
+        document.getElementById("youtubeLinkPromptGate").style.display = "none";
+    }
+
+    async function loadSanctuaryGDriveVideo() {
+        const rawUrl = document.getElementById("sanctuaryGDriveUrlInput").value.trim();
+        if (!rawUrl) return alert("Please specify a manual Google Drive layout path first.");
+
+        let fileId = "";
+        if (rawUrl.includes("id=")) {
+            fileId = rawUrl.split("id=")[1].split("&")[0];
+        } else if (rawUrl.includes("/d/")) {
+            fileId = rawUrl.split("/d/")[1].split("/")[0];
+        }
+
+        const resolvedUrl = fileId ? `https://docs.google.com/uc?export=download&id=${fileId}` : rawUrl;
+
+        await db.collection("sanctuary_media").doc("global_state").set({
+            activeUrl: resolvedUrl,
+            source: "gdrive",
+            timestamp: Date.now()
+        });
+
+        document.getElementById("sanctuaryGDriveUrlInput").value = "";
+        alert("Manual Google Drive source loaded to Private Sanctuary frame node.");
+    }
+
+    async function sendSanctuaryWhisper() {
+        const input = document.getElementById("sanctuaryChatInput");
+        const msg = input.value.trim();
+        if (!msg) return;
+
+        await db.collection("sanctuary_whispers").add({
+            author: currentSessionUser,
+            whisper: msg,
+            timestamp: Date.now()
+        });
+        input.value = "";
+    }
+
+    function adjustVolumeMixerValues(val) {
+        const trackVolume = val / 100;
+        const drivePlayer = document.getElementById("sanctuaryDrivePlayerNode");
+        if (drivePlayer) drivePlayer.volume = trackVolume;
+        
+        const remoteVideo = document.getElementById("remoteVideoElement");
+        if (remoteVideo) remoteVideo.volume = (100 - val) / 100;
+    }
+
     // --- Lazy Dynamic Background Script Loader for Google Picker & Identity Services ---
     function loadGoogleAuthenticationApis() {
-        // Load GAPI client library
         const gapiScript = document.createElement('script');
         gapiScript.src = 'https://apis.google.com/js/api.js';
         gapiScript.async = true;
@@ -1170,7 +1259,6 @@
         };
         document.body.appendChild(gapiScript);
 
-        // Load GIS (Google Identity Services)
         const gisScript = document.createElement('script');
         gisScript.src = 'https://accounts.google.com/gsi/client';
         gisScript.async = true;
@@ -1219,7 +1307,6 @@
     function launchRavePicker() {
         if (pickerApiLoaded && gdAccessToken) {
             const view = new google.picker.View(google.picker.ViewId.DOCS);
-            // Restrict target documents explicitly to common playable web video codecs
             view.setMimeTypes("video/mp4,video/webm,video/x-matroska,video/quicktime,video/ogg");
             
             const picker = new google.picker.PickerBuilder()
@@ -1241,10 +1328,8 @@
             const fileId = doc[google.picker.Document.ID];
             const fileName = doc[google.picker.Document.NAME];
             
-            // Resolve directly playable public stream path
             const resolvedDirectStreamUrl = `https://docs.google.com/uc?export=download&id=${fileId}`;
 
-            // Check if user is navigating inside Leigh's Private Sanctuary Room or Normal Room
             if (localStorage.getItem("cl_active_route") === "SANCTUARY") {
                 await db.collection("sanctuary_media").doc("global_state").set({
                     activeUrl: resolvedDirectStreamUrl,
@@ -1253,7 +1338,6 @@
                 });
                 alert(`✨ Now streaming inside Leigh's Sanctuary: \n🎬 "${fileName}" \n\n⚠️ Ensure your movie permission is configured as "Anyone with the link can view" on Google Drive so Leigh's player can load the feed!`);
             } else {
-                // Normal Room Sync
                 await db.collection("rave_parties").doc(currentRoomId).update({
                     mediaUrl: resolvedDirectStreamUrl,
                     mediaTitle: fileName,
@@ -1420,14 +1504,7 @@
         const rawUrl = document.getElementById("sidebarYtUrl").value.trim();
         if (!rawUrl) return alert("Please insert a valid YouTube target address link.");
 
-        let vId = "";
-        if (rawUrl.includes("v=")) {
-            vId = rawUrl.split("v=")[1].split("&")[0];
-        } else if (rawUrl.includes("youtu.be/")) {
-            vId = rawUrl.split("youtu.be/")[1].split("?")[0];
-        } else if (rawUrl.includes("embed/")) {
-            vId = rawUrl.split("embed/")[1].split("?")[0];
-        }
+        let vId = extractYoutubeId(rawUrl);
 
         if (vId) {
             let processedUrl = `https://www.youtube.com/embed/${vId}?autoplay=1&enablejsapi=1`;
@@ -1441,7 +1518,7 @@
             document.getElementById("sidebarYtUrl").value = "";
             returnToTheaterLayoutView();
         } else {
-            alert("Could not extract a valid YouTube video ID from that link.");
+            alert("Could not extract a valid YouTube video ID from that link structure.");
         }
     }
 
@@ -1504,7 +1581,6 @@
         field.type = field.type === "password" ? "text" : "password";
     }
 
-    // --- Cloud Synchronized Google Drive File System Link ---
     async function syncGDriveSharedUrl() {
         if (!currentRoomId) return alert("Please host or join a room first to sync Drive links!");
         const rawDriveUrl = document.getElementById("gdriveSharedSyncUrl").value.trim();
@@ -1655,7 +1731,6 @@
         }, 600);
     }
 
-    // --- Private Sanctuary Interstitial Welcoming Page Trigger ---
     function openILabLeighPrivateSanctuary(bypassAnimation = false) {
         if (currentUserRole !== "Admin" && currentUserRole !== "Owner") {
             return alert("Locked: The Private Sanctuary is strictly available only for Room Admins and Leigh.");
@@ -1718,7 +1793,6 @@
         hangUpActiveCall();
     }
 
-    // --- Active 2-Way Video Call Real-time Implementation ---
     async function toggleSanctuaryCameraFeed() {
         const camBtn = document.getElementById("sanctuaryCamBtn");
         
@@ -1737,13 +1811,11 @@
             localVideo.style.display = "block";
             localPlaceholder.style.display = "none";
 
-            // Register calling node in DB for real-time presence handshake
             await db.collection("sanctuary_calls").doc(currentSessionUser).set({
                 active: true,
                 timestamp: Date.now()
             });
 
-            // Listen for other user's active camera feed signals
             const targetPeer = currentSessionUser.toLowerCase() === "leigh" ? "Carleigh" : "Leigh"; 
             document.getElementById("peerCallName").innerText = targetPeer;
 
@@ -1754,7 +1826,6 @@
                     const remotePlaceholder = document.getElementById("remotePlaceholder");
 
                     if (doc.exists && doc.data().active) {
-                        // Display peer stream feed
                         remoteVideo.srcObject = localStream; 
                         remoteVideo.style.display = "block";
                         remotePlaceholder.style.display = "none";
@@ -2133,7 +2204,6 @@
             document.getElementById("roomTitleHeader").innerText = `${data.hostName}'s Watch Space`;
             document.getElementById("roomSubHeader").innerText = `Syncing Target: ${data.mediaTitle}`;
 
-            // Real-time Drive Sync Link Setup
             const driveLaunchBtn = document.getElementById("gdriveLaunchBtn");
             const driveLaunchText = document.getElementById("gdriveLaunchText");
             if (data.gdriveSyncedLink) {
@@ -2158,16 +2228,10 @@
                 document.getElementById("guestLockOverlay").style.display = "block";
             }
 
-            // --- Consolidated Real-time Synced Core Engine ---
             if (data.mediaUrl.includes("youtube.com/embed/") || data.mediaUrl.includes("youtube.com/watch") || data.mediaUrl.includes("youtu.be/")) {
                 let cleanEmbedUrl = data.mediaUrl;
                 if (!data.mediaUrl.includes("embed/")) {
-                    let extractedId = "";
-                    if (data.mediaUrl.includes("v=")) {
-                        extractedId = data.mediaUrl.split("v=")[1].split("&")[0];
-                    } else if (data.mediaUrl.includes("youtu.be/")) {
-                        extractedId = data.mediaUrl.split("youtu.be/")[1].split("?")[0];
-                    }
+                    let extractedId = extractYoutubeId(data.mediaUrl);
                     if (extractedId) {
                         cleanEmbedUrl = `https://www.youtube.com/embed/${extractedId}?autoplay=1&enablejsapi=1`;
                     }
@@ -2183,7 +2247,9 @@
 
     function setupYoutubeIframePlayer(embedUrl, targetTime, isPlaying) {
         let container = document.getElementById("playerParentFrameContainer");
-        let vId = embedUrl.split("embed/")[1].split("?")[0];
+        let parts = embedUrl.split("embed/");
+        if (parts.length < 2) return;
+        let vId = parts[1].split("?")[0];
 
         if (currentActiveYtVideoId !== vId) {
             currentActiveYtVideoId = vId;
@@ -2213,13 +2279,16 @@
                 }
             });
         } else if (ytPlayerInstance && typeof ytPlayerInstance.getPlayerState === 'function') {
-            let currentLocalTime = ytPlayerInstance.getCurrentTime();
-            if (Math.abs(currentLocalTime - targetTime) > 3) {
-                ytPlayerInstance.seekTo(targetTime, true);
+            if (typeof ytPlayerInstance.getCurrentTime === 'function') {
+                let currentLocalTime = ytPlayerInstance.getCurrentTime();
+                if (Math.abs(currentLocalTime - targetTime) > 3) {
+                    ytPlayerInstance.seekTo(targetTime, true);
+                }
             }
-            if (isPlaying && ytPlayerInstance.getPlayerState() !== 1) {
+            let playerState = ytPlayerInstance.getPlayerState();
+            if (isPlaying && playerState !== 1) {
                 ytPlayerInstance.playVideo();
-            } else if (!isPlaying && ytPlayerInstance.getPlayerState() === 1) {
+            } else if (!isPlaying && playerState === 1) {
                 ytPlayerInstance.pauseVideo();
             }
         }
@@ -2246,7 +2315,7 @@
         
         let state = event.data;
         let isPlaying = (state === 1);
-        let currentTime = ytPlayerInstance.getCurrentTime();
+        let currentTime = (ytPlayerInstance && typeof ytPlayerInstance.getCurrentTime === 'function') ? ytPlayerInstance.getCurrentTime() : 0;
 
         if (state === 1 || state === 2) {
             db.collection("rave_parties").doc(currentRoomId).update({
@@ -2291,13 +2360,12 @@
         }
     }
 
-    // --- CO-HOSTED & SYNC PLAY/PAUSE/SKIP FUNCTIONS ---
     function triggerSharedPlayPause() {
         if (!currentRoomId) return;
         const newPlayState = !lastKnownHostState.playing;
         let currentTime = 0;
 
-        if (currentActiveYtVideoId && ytPlayerInstance) {
+        if (currentActiveYtVideoId && ytPlayerInstance && typeof ytPlayerInstance.getCurrentTime === 'function') {
             currentTime = ytPlayerInstance.getCurrentTime();
         } else if (player) {
             currentTime = player.currentTime;
@@ -2314,7 +2382,7 @@
         if (!currentRoomId) return;
         let currentTime = 0;
 
-        if (currentActiveYtVideoId && ytPlayerInstance) {
+        if (currentActiveYtVideoId && ytPlayerInstance && typeof ytPlayerInstance.getCurrentTime === 'function') {
             currentTime = ytPlayerInstance.getCurrentTime();
         } else if (player) {
             currentTime = player.currentTime;
@@ -2490,7 +2558,6 @@
         }, 120000);
     }
 
-    // --- Private Sanctuary Feature Subsystem Core Implementation ---
     function initializePrivateSanctuarySubscribers() {
         if (sanctuaryChatUnsubscribe) sanctuaryChatUnsubscribe();
 
@@ -2516,7 +2583,6 @@
                 scroller.scrollTop = scroller.scrollHeight;
             });
 
-        // Sanctuary Shared Media Synchronizer Node
         if (sanctuaryVideoUnsubscribe) sanctuaryVideoUnsubscribe();
         sanctuaryVideoUnsubscribe = db.collection("sanctuary_media").doc("global_state")
             .onSnapshot(doc => {
@@ -2529,7 +2595,6 @@
                         document.getElementById("sourceRequestGate").style.display = "none";
                         document.getElementById("youtubeLinkPromptGate").style.display = "none";
 
-                        // Handle Google Drive sources through HTML5 Video element instead of standard restricted iFrames
                         if (data.source === "gdrive" || data.activeUrl.includes("docs.google.com/uc")) {
                             frame.style.display = "none";
                             drivePlayer.style.display = "block";
