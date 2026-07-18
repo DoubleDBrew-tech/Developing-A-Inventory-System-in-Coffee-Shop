@@ -1113,9 +1113,33 @@
     let activeBrowserContextMode = "ridomovies";
 
     // --- Private Sanctuary State Variables ---
+        // --- Private Sanctuary State Variables ---
     let sanctuaryActiveSource = "youtube";
     let sanctuaryChatUnsubscribe = null;
     let sanctuaryVideoUnsubscribe = null;
+    let isSanctuaryHost = false;
+    let isSanctuaryInternalUpdate = false;
+
+    // --- Sanctuary Player Sync Setup ---
+    function setupSanctuaryPlayerSync() {
+        const drivePlayer = document.getElementById("sanctuaryDrivePlayerNode");
+        drivePlayer.addEventListener("play", () => {
+            if (isSanctuaryInternalUpdate) { isSanctuaryInternalUpdate = false; return; }
+            if (!isSanctuaryHost) return;
+            db.collection("sanctuary_media").doc("global_state").update({ playing: true, currentTime: drivePlayer.currentTime, timestamp: Date.now() });
+        });
+        drivePlayer.addEventListener("pause", () => {
+            if (isSanctuaryInternalUpdate) { isSanctuaryInternalUpdate = false; return; }
+            if (!isSanctuaryHost) return;
+            db.collection("sanctuary_media").doc("global_state").update({ playing: false, currentTime: drivePlayer.currentTime, timestamp: Date.now() });
+        });
+        drivePlayer.addEventListener("seeked", () => {
+            if (isSanctuaryInternalUpdate) { isSanctuaryInternalUpdate = false; return; }
+            if (!isSanctuaryHost) return;
+            db.collection("sanctuary_media").doc("global_state").update({ currentTime: drivePlayer.currentTime, timestamp: Date.now() });
+        });
+    }
+
 
     // --- Live WebRTC/Camera Stream Variables ---
     let localStream = null;
@@ -1146,6 +1170,7 @@
         listenToEmbeddedBrowserNavigationCycles();
         setupLocalPlayerSyncListeners();
         loadGoogleAuthenticationApis(); 
+        setupSanctuaryPlayerSync();
     });
 
     window.addEventListener("beforeunload", () => {
@@ -1768,9 +1793,27 @@
         }, 3000);
     }
 
-    function proceedToSanctuaryActualRoom() {
+        async function proceedToSanctuaryActualRoom() {
         document.getElementById("sanctuaryWelcomingOverlay").style.display = "none";
         document.getElementById("adminRevealBlock").style.display = "flex";
+
+        // Announce Join in Chat
+        await db.collection("sanctuary_whispers").add({
+            author: "System",
+            whisper: `${currentSessionUser} joined the Sanctuary.`,
+            timestamp: Date.now(),
+            isSystem: true
+        });
+
+        // First to enter becomes Host logic
+        const stateDoc = await db.collection("sanctuary_media").doc("global_state").get();
+        if (!stateDoc.exists || !stateDoc.data().activeHost) {
+            await db.collection("sanctuary_media").doc("global_state").set({ activeHost: currentSessionUser }, { merge: true });
+            isSanctuaryHost = true;
+        } else {
+            isSanctuaryHost = (stateDoc.data().activeHost === currentSessionUser);
+        }
+
         initializePrivateSanctuarySubscribers();
         
         document.getElementById("sourceRequestGate").style.display = "flex";
@@ -1779,9 +1822,24 @@
         document.getElementById("youtubeLinkPromptGate").style.display = "none";
     }
 
-    function closeAdminPanel() {
+        async function closeAdminPanel() {
         document.getElementById("adminRevealBlock").style.display = "none";
         localStorage.setItem("cl_active_route", "THEATER");
+
+        // Announce Leave in Chat
+        await db.collection("sanctuary_whispers").add({
+            author: "System",
+            whisper: `${currentSessionUser} left the Sanctuary.`,
+            timestamp: Date.now(),
+            isSystem: true
+        });
+
+        // Release Host status if the host is leaving
+        if (isSanctuaryHost) {
+            await db.collection("sanctuary_media").doc("global_state").set({ activeHost: null }, { merge: true });
+            isSanctuaryHost = false;
+        }
+
         if (sanctuaryChatUnsubscribe) {
             sanctuaryChatUnsubscribe();
             sanctuaryChatUnsubscribe = null;
@@ -2570,11 +2628,16 @@
                 snapshot.forEach(doc => {
                     const data = doc.data();
                     const timestampStr = new Date(data.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                    
+                    // Style system messages differently
+                    const authorColor = data.isSystem ? "text-info" : "text-danger";
+                    const whisperStyle = data.isSystem ? "text-muted fst-italic" : "text-white fw-bold";
+
                     scroller.innerHTML += `
                         <div class="chat-bubble-row">
                             <div class="text-truncate me-2">
-                                <span class="chat-author-tag text-danger">${data.author}:</span>
-                                <span class="text-white fw-bold">${data.whisper}</span>
+                                <span class="chat-author-tag ${authorColor}">${data.author}:</span>
+                                <span class="${whisperStyle}">${data.whisper}</span>
                             </div>
                             <span class="chat-time-tag text-muted">${timestampStr}</span>
                         </div>
@@ -2591,6 +2654,11 @@
                     const frame = document.getElementById("sanctuaryFrameNode");
                     const drivePlayer = document.getElementById("sanctuaryDrivePlayerNode");
 
+                    // Re-evaluate Host if someone drops out
+                    if (data.activeHost) {
+                        isSanctuaryHost = (data.activeHost === currentSessionUser);
+                    }
+
                     if (data.activeUrl) {
                         document.getElementById("sourceRequestGate").style.display = "none";
                         document.getElementById("youtubeLinkPromptGate").style.display = "none";
@@ -2603,6 +2671,21 @@
                                 drivePlayer.src = data.activeUrl;
                                 drivePlayer.load();
                             }
+
+                            // Sync Logic for Google Drive Player
+                            if (data.currentTime !== undefined && Math.abs(drivePlayer.currentTime - data.currentTime) > 3) {
+                                isSanctuaryInternalUpdate = true;
+                                drivePlayer.currentTime = data.currentTime;
+                            }
+
+                            if (data.playing && drivePlayer.paused) {
+                                isSanctuaryInternalUpdate = true;
+                                drivePlayer.play().catch(() => {});
+                            } else if (!data.playing && !drivePlayer.paused) {
+                                isSanctuaryInternalUpdate = true;
+                                drivePlayer.pause();
+                            }
+
                         } else {
                             drivePlayer.style.display = "none";
                             frame.style.display = "block";
@@ -2614,6 +2697,7 @@
                 }
             });
     }
+
 </script>
 </body>
 </html>
