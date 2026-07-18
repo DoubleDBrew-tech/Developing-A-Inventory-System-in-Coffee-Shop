@@ -1020,7 +1020,8 @@
                     </div>
 
                     <!-- SYNCHRONIZED SKIP & PLAY CONTROLS -->
-                    <div class="card bg-dark border-secondary p-3 mb-3 d-flex flex-row justify-content-center gap-3 align-items-center">
+                                       <!-- SYNCHRONIZED SKIP & PLAY CONTROLS -->
+                    <div id="syncControlsCard" class="card bg-dark border-secondary p-3 mb-3 d-flex flex-row justify-content-center gap-3 align-items-center">
                         <button class="btn btn-outline-danger" onclick="triggerSharedSkip(-10)">⏪ Skip -10s</button>
                         <button class="btn btn-danger px-4 py-2 fw-bold" id="sharedPlayPauseBtn" onclick="triggerSharedPlayPause()">Play / Pause 🎬</button>
                         <button class="btn btn-outline-danger" onclick="triggerSharedSkip(10)">Skip +10s ⏩</button>
@@ -1044,7 +1045,8 @@
                                 <li>Right-click the video file, select <b>Share</b>, and set permissions to <b>"Anyone with the link"</b>.</li>
                                 <li>Copy the link (e.g., <code>https://drive.google.com/file/d/<span class="text-danger">FILE_ID</span>/view?usp=sharing</code>).</li>
                                 <li>Replace the ID in this direct streaming URL layout and load it: <br>
-                                <code class="text-white">https://docs.google.com/uc?export=download&id=<span class="text-danger">FILE_ID</span></code></li>
+                                <code class="text-white">https://www.googleapis.com/drive/v3/files/<span class="text-danger">FILE_ID</span>?alt=media&key=AIzaSyCeoDmHlgnOc97fyUwIAg0yoKo6bnP9sVA</code></li>
+
                             </ol>
                         </div>
                     </div>
@@ -1283,7 +1285,7 @@
             fileId = rawUrl.split("/d/")[1].split("/")[0];
         }
 
-        const resolvedUrl = fileId ? `https://docs.google.com/uc?export=download&id=${fileId}` : rawUrl;
+                    const resolvedDirectStreamUrl = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&key=${GD_API_KEY}`;
 
         await db.collection("sanctuary_media").doc("global_state").set({
             activeUrl: resolvedUrl,
@@ -1399,7 +1401,7 @@
             const fileId = doc[google.picker.Document.ID];
             const fileName = doc[google.picker.Document.NAME];
             
-            const resolvedDirectStreamUrl = `https://docs.google.com/uc?export=download&id=${fileId}`;
+            const resolvedDirectStreamUrl = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&key=${GD_API_KEY}`;
 
             if (localStorage.getItem("cl_active_route") === "SANCTUARY") {
                 await db.collection("sanctuary_media").doc("global_state").set({
@@ -2326,13 +2328,18 @@
 
             let dynamicMediaControlAuthorized = isRoomHost || currentUserRole === "Admin" || currentUserRole === "Owner";
 
-            if (dynamicMediaControlAuthorized) {
+                        if (dynamicMediaControlAuthorized) {
                 document.getElementById("mediaControllerCard").style.display = "block";
                 document.getElementById("guestLockOverlay").style.display = "none";
+                document.getElementById("syncControlsCard").style.display = "flex";
+                document.getElementById("sharedPlayer").setAttribute("controls", "controls");
             } else {
                 document.getElementById("mediaControllerCard").style.display = "none";
                 document.getElementById("guestLockOverlay").style.display = "block";
+                document.getElementById("syncControlsCard").style.display = "none";
+                document.getElementById("sharedPlayer").removeAttribute("controls");
             }
+
 
             if (data.mediaUrl.includes("youtube.com/embed/") || data.mediaUrl.includes("youtube.com/watch") || data.mediaUrl.includes("youtu.be/")) {
                 let cleanEmbedUrl = data.mediaUrl;
@@ -2466,41 +2473,19 @@
         }
     }
 
-    function triggerSharedPlayPause() {
+        function triggerSharedPlayPause() {
         if (!currentRoomId) return;
+        if (!isRoomHost && currentUserRole !== "Admin" && currentUserRole !== "Owner") return;
+        
         const newPlayState = !lastKnownHostState.playing;
         let currentTime = 0;
-
-        if (currentActiveYtVideoId && ytPlayerInstance && typeof ytPlayerInstance.getCurrentTime === 'function') {
-            currentTime = ytPlayerInstance.getCurrentTime();
-        } else if (player) {
-            currentTime = player.currentTime;
-        }
-
-        db.collection("rave_parties").doc(currentRoomId).update({
-            playing: newPlayState,
-            currentTime: currentTime,
-            lastUpdated: Date.now()
-        });
-    }
-
+// ... (scroll down) ...
     function triggerSharedSkip(seconds) {
         if (!currentRoomId) return;
+        if (!isRoomHost && currentUserRole !== "Admin" && currentUserRole !== "Owner") return;
+        
         let currentTime = 0;
 
-        if (currentActiveYtVideoId && ytPlayerInstance && typeof ytPlayerInstance.getCurrentTime === 'function') {
-            currentTime = ytPlayerInstance.getCurrentTime();
-        } else if (player) {
-            currentTime = player.currentTime;
-        }
-
-        let targetTime = Math.max(0, currentTime + seconds);
-
-        db.collection("rave_parties").doc(currentRoomId).update({
-            currentTime: targetTime,
-            lastUpdated: Date.now()
-        });
-    }
 
     function setupLocalPlayerSyncListeners() {
         if (!player) return;
