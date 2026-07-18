@@ -451,6 +451,13 @@
             color: #6b7280;
             margin-left: 5px;
         }
+        .chat-bubble-row .text-muted, 
+        .chat-bubble-row .text-dark {
+            color: #ffca28 !important; 
+            font-weight: 600;
+            font-style: italic;
+        }
+
         .chat-input-bar-group {
             padding: 10px;
             border-top: 1px solid #2d2d37;
@@ -1121,24 +1128,61 @@
     let isSanctuaryInternalUpdate = false;
 
     // --- Sanctuary Player Sync Setup ---
+        // --- ADD THIS: Role Hierarchy Level Checker ---
+    function getUserRankLevel(role) {
+        if (role === "Owner") return 3;
+        if (role === "Admin") return 2;
+        return 1; // Member or Guest
+    }
+
+    // --- REWRITE: Sanctuary Player Sync Setup ---
     function setupSanctuaryPlayerSync() {
         const drivePlayer = document.getElementById("sanctuaryDrivePlayerNode");
-        drivePlayer.addEventListener("play", () => {
+        
+        const handleSyncEvent = (stateUpdate) => {
             if (isSanctuaryInternalUpdate) { isSanctuaryInternalUpdate = false; return; }
-            if (!isSanctuaryHost) return;
-            db.collection("sanctuary_media").doc("global_state").update({ playing: true, currentTime: drivePlayer.currentTime, timestamp: Date.now() });
-        });
-        drivePlayer.addEventListener("pause", () => {
-            if (isSanctuaryInternalUpdate) { isSanctuaryInternalUpdate = false; return; }
-            if (!isSanctuaryHost) return;
-            db.collection("sanctuary_media").doc("global_state").update({ playing: false, currentTime: drivePlayer.currentTime, timestamp: Date.now() });
-        });
-        drivePlayer.addEventListener("seeked", () => {
-            if (isSanctuaryInternalUpdate) { isSanctuaryInternalUpdate = false; return; }
-            if (!isSanctuaryHost) return;
-            db.collection("sanctuary_media").doc("global_state").update({ currentTime: drivePlayer.currentTime, timestamp: Date.now() });
-        });
+            
+            db.collection("sanctuary_media").doc("global_state").get().then(doc => {
+                let currentControllerRank = 0;
+                let isStale = false;
+                
+                if (doc.exists) {
+                    const data = doc.data();
+                    currentControllerRank = data.controllerRank || 0;
+                    // If no one updated it in the last 15 seconds, assume the previous host dropped
+                    isStale = data.timestamp && (Date.now() - data.timestamp > 15000); 
+                }
+
+                const myRank = getUserRankLevel(currentUserRole);
+
+                // Hierarchy Check: Proceed only if my rank >= current controller OR stream is stale
+                if (myRank >= currentControllerRank || isStale) {
+                    db.collection("sanctuary_media").doc("global_state").set({
+                        ...stateUpdate,
+                        controllerRank: myRank, // Claim hierarchy command
+                        activeHost: currentSessionUser,
+                        timestamp: Date.now()
+                    }, { merge: true });
+                } else {
+                    // Unauthorized action: Revert local player state back to what the higher-ranking user set
+                    isSanctuaryInternalUpdate = true;
+                    if (doc.exists && doc.data().playing) {
+                        drivePlayer.play();
+                    } else {
+                        drivePlayer.pause();
+                    }
+                    if (doc.exists && doc.data().currentTime) {
+                        drivePlayer.currentTime = doc.data().currentTime;
+                    }
+                }
+            });
+        };
+
+        drivePlayer.addEventListener("play", () => handleSyncEvent({ playing: true, currentTime: drivePlayer.currentTime }));
+        drivePlayer.addEventListener("pause", () => handleSyncEvent({ playing: false, currentTime: drivePlayer.currentTime }));
+        drivePlayer.addEventListener("seeked", () => handleSyncEvent({ currentTime: drivePlayer.currentTime }));
     }
+
 
 
     // --- Live WebRTC/Camera Stream Variables ---
@@ -1206,15 +1250,17 @@
         const rawUrl = document.getElementById("sanctuaryYtUrlInput").value.trim();
         if (!rawUrl) return alert("Please enter a valid link target layout.");
 
-        let processedUrl = rawUrl;
+                let processedUrl = rawUrl;
         if (sanctuaryActiveSource === 'youtube') {
             let vId = extractYoutubeId(rawUrl);
             if (vId) {
-                processedUrl = `https://www.youtube.com/embed/${vId}?autoplay=1&enablejsapi=1`;
+                // FIX: Append &vq=hd1080 to attempt forced 1080p high-definition playback
+                processedUrl = `https://www.youtube.com/embed/${vId}?autoplay=1&enablejsapi=1&vq=hd1080`;
             } else {
                 return alert("Could not parse a valid YouTube ID from that link structure.");
             }
         }
+
 
         await db.collection("sanctuary_media").doc("global_state").set({
             activeUrl: processedUrl,
@@ -1532,19 +1578,21 @@
         let vId = extractYoutubeId(rawUrl);
 
         if (vId) {
-            let processedUrl = `https://www.youtube.com/embed/${vId}?autoplay=1&enablejsapi=1`;
-            db.collection("rave_parties").doc(currentRoomId).update({
-                mediaUrl: processedUrl,
-                mediaTitle: "YouTube Stream Room",
-                currentTime: 0,
-                playing: true,
-                lastUpdated: Date.now()
-            });
-            document.getElementById("sidebarYtUrl").value = "";
-            returnToTheaterLayoutView();
-        } else {
-            alert("Could not extract a valid YouTube video ID from that link structure.");
-        }
+    // Adding &vq=hd1080 to the URL
+    let processedUrl = `https://www.youtube.com/embed/${vId}?autoplay=1&enablejsapi=1&vq=hd1080`;
+    db.collection("rave_parties").doc(currentRoomId).update({
+        mediaUrl: processedUrl,
+        mediaTitle: "YouTube Stream Room",
+        currentTime: 0,
+        playing: true,
+        lastUpdated: Date.now()
+    });
+    document.getElementById("sidebarYtUrl").value = "";
+    returnToTheaterLayoutView();
+} else {
+    alert("Could not extract a valid YouTube video ID from that link structure.");
+}
+
     }
 
     function checkForExtractableMovieStreamData(urlStr, frameDoc) {
